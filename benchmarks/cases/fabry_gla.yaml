@@ -1,0 +1,24 @@
+id: fabry_gla
+name: "Fabry disease — GLA missense → migalastat"
+category: curated
+
+input:
+  gene: "GLA"
+  mutation: "amenable missense mutation (e.g. p.Ala143Thr) reducing alpha-galactosidase A stability"
+  disease_phenotype: "Fabry disease with lysosomal Gb3 accumulation causing neuropathy, cardiomyopathy, renal failure, and angiokeratoma"
+
+expected_outputs:
+  target_protein: "GLA"
+  target_aliases: ["GLA", "alpha-galactosidase", "migalastat", "Galafold", "chaperone"]
+  modulation_type: "chaperone"
+  key_citations:
+    - "migalastat"
+    - "Galafold"
+    - "ATTRACT"
+    - "pharmacological chaperone"
+  mechanism_class: "misfolding"
+  min_confidence: 0.78
+
+references:
+  - "Hughes DA et al. Oral pharmacological chaperone migalastat compared with enzyme replacement therapy in Fabry disease. J Med Genet 2017"
+  - "Germain DP et al. Treatment of Fabry disease with pharmacological chaperone migalastat. J Inherit Metab Dis 2019"

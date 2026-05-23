@@ -1,0 +1,25 @@
+id: sma_smn1
+name: "SMA — SMN1 deletion → onasemnogene/nusinersen"
+category: curated
+
+input:
+  gene: "SMN1"
+  mutation: "homozygous deletion of exon 7-8 causing complete loss of survival motor neuron protein"
+  disease_phenotype: "spinal muscular atrophy type 1 (SMA1) with progressive motor neuron degeneration, hypotonia, and respiratory failure"
+
+expected_outputs:
+  target_protein: "SMN2"
+  target_aliases: ["SMN2", "SMN1", "onasemnogene", "nusinersen", "gene therapy"]
+  modulation_type: "gene_therapy"
+  key_citations:
+    - "onasemnogene"
+    - "Zolgensma"
+    - "nusinersen"
+    - "Spinraza"
+  mechanism_class: "lof"
+  min_confidence: 0.80
+
+references:
+  - "Mendell JR et al. Single-Dose Gene-Replacement Therapy for SMA. NEJM 2017"
+  - "Finkel RS et al. Nusinersen vs sham control in SMA. NEJM 2017"
+  - "Baranello G et al. Risdiplam in SMA type 1. NEJM 2021"

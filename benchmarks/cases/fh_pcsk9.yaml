@@ -1,0 +1,24 @@
+id: fh_pcsk9
+name: "FH — PCSK9 GoF → inclisiran"
+category: curated
+
+input:
+  gene: "PCSK9"
+  mutation: "gain-of-function missense (e.g. p.Asp374Tyr) causing enhanced LDLR degradation"
+  disease_phenotype: "familial hypercholesterolemia with severely elevated LDL-C and premature atherosclerotic cardiovascular disease"
+
+expected_outputs:
+  target_protein: "PCSK9"
+  target_aliases: ["PCSK9", "inclisiran", "evolocumab", "LDLR"]
+  modulation_type: "siRNA_ASO"
+  key_citations:
+    - "inclisiran"
+    - "Leqvio"
+    - "ORION"
+    - "evolocumab"
+  mechanism_class: "gof"
+  min_confidence: 0.80
+
+references:
+  - "Ray KK et al. Two Phase 3 Trials of Inclisiran in Patients with Elevated LDL Cholesterol. NEJM 2020"
+  - "Sabatine MS et al. Evolocumab and Clinical Outcomes in Patients with CVD. NEJM 2017"

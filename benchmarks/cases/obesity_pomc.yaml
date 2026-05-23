@@ -1,0 +1,23 @@
+id: obesity_pomc
+name: "POMC-deficiency obesity — POMC LoF → setmelanotide"
+category: curated
+
+input:
+  gene: "POMC"
+  mutation: "homozygous nonsense or frameshift in POMC causing absence of ACTH/MSH peptides"
+  disease_phenotype: "severe early-onset obesity due to POMC deficiency, hyperphagia, pale skin, adrenal insufficiency"
+
+expected_outputs:
+  target_protein: "MC4R"
+  target_aliases: ["MC4R", "melanocortin 4 receptor", "setmelanotide", "Imcivree"]
+  modulation_type: "activator"
+  key_citations:
+    - "setmelanotide"
+    - "Imcivree"
+    - "MC4R"
+  mechanism_class: "lof"
+  min_confidence: 0.80
+
+references:
+  - "Clément K et al. MC4R agonism promotes durable weight loss in patients with leptin receptor deficiency. Nat Med 2020"
+  - "Kuhnen P et al. Proopiomelanocortin Deficiency Treated with a Melanocortin-4 Receptor Agonist. NEJM 2016"

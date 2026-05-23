@@ -1,0 +1,23 @@
+id: scd_hbb
+name: "SCD — HBB p.Glu6Val → voxelotor"
+category: curated
+
+input:
+  gene: "HBB"
+  mutation: "c.20A>T (p.Glu6Val) missense causing hemoglobin S polymerization under hypoxia"
+  disease_phenotype: "sickle cell disease with hemolytic anemia, vaso-occlusive crises, and end-organ damage"
+
+expected_outputs:
+  target_protein: "HBB"
+  target_aliases: ["hemoglobin S", "HbS", "voxelotor", "HBB polymerization"]
+  modulation_type: "inhibitor"
+  key_citations:
+    - "voxelotor"
+    - "Oxbryta"
+    - "HOPE trial"
+  mechanism_class: "misfolding"
+  min_confidence: 0.75
+
+references:
+  - "Vichinsky E et al. A phase 3 randomized trial of voxelotor in SCD. NEJM 2019"
+  - "Pecker LH & Darbari DS. Pathophysiology of sickle cell disease. Blood 2021"

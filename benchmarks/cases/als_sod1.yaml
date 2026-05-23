@@ -1,0 +1,24 @@
+id: als_sod1
+name: "SOD1-ALS — SOD1 GoF/dominant-negative → tofersen"
+category: curated
+
+input:
+  gene: "SOD1"
+  mutation: "dominant missense (e.g. p.Ala4Val) causing toxic SOD1 aggregates in motor neurons"
+  disease_phenotype: "familial ALS caused by SOD1 mutations with progressive upper and lower motor neuron degeneration"
+
+expected_outputs:
+  target_protein: "SOD1"
+  target_aliases: ["SOD1", "tofersen", "Qalsody", "antisense oligonucleotide"]
+  modulation_type: "siRNA_ASO"
+  key_citations:
+    - "tofersen"
+    - "Qalsody"
+    - "ATLAS"
+    - "SOD1"
+  mechanism_class: "gof"
+  min_confidence: 0.78
+
+references:
+  - "Miller TM et al. Trial of Antisense Oligonucleotide Tofersen for SOD1 ALS. NEJM 2020"
+  - "Benatar M et al. Randomized, double-blind, placebo-controlled trial of tofersen in presymptomatic SOD1 ALS. NEJM 2022"

@@ -1,0 +1,23 @@
+id: dmd_exon51
+name: "DMD exon 51 skippable — DMD deletion → eteplirsen"
+category: curated
+
+input:
+  gene: "DMD"
+  mutation: "exon 48-50 deletion causing out-of-frame transcript and complete dystrophin absence"
+  disease_phenotype: "Duchenne muscular dystrophy with progressive proximal muscle weakness, cardiomyopathy, and loss of ambulation"
+
+expected_outputs:
+  target_protein: "DMD"
+  target_aliases: ["dystrophin", "DMD", "eteplirsen", "exon 51", "Exondys"]
+  modulation_type: "splice_modifier"
+  key_citations:
+    - "eteplirsen"
+    - "Exondys 51"
+    - "exon skipping"
+  mechanism_class: "lof"
+  min_confidence: 0.75
+
+references:
+  - "Mendell JR et al. Eteplirsen for the Treatment of Duchenne Muscular Dystrophy. Ann Neurol 2013"
+  - "Aartsma-Rus A et al. Exon skipping: a first in class strategy for Duchenne. Nat Rev Drug Discov 2009"

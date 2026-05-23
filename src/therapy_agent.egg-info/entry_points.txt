@@ -1,0 +1,2 @@
+[console_scripts]
+therapy-agent = therapy_agent.cli:main

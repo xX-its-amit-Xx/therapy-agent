@@ -1,0 +1,34 @@
+# Benchmark Case 2: BRD4780/ADTKD
+# Expected: target TMED9, cite BRD4780, Dvela-Levitt Cell 2019
+id: brd4780_umod
+name: "ADTKD — UMOD/MUC1 misfolding → BRD4780/TMED9"
+category: primary
+
+input:
+  gene: "UMOD"
+  mutation: "frameshift mutation causing protein misfolding and ER retention in kidney epithelial cells"
+  disease_phenotype: "autosomal dominant tubulointerstitial kidney disease (ADTKD) with tubular atrophy and progressive renal failure"
+
+expected_outputs:
+  target_protein: "TMED9"
+  target_aliases: ["TMED9", "TMED2", "TMED10", "cargo receptor", "TMED"]
+  modulation_type: "inhibitor"
+  key_citations:
+    - "BRD4780"
+    - "Dvela-Levitt"
+    - "Cell 2019"
+    - "TMED9"
+  mechanism_class: "misfolding"
+  min_confidence: 0.75
+
+grading:
+  target_match: 30
+  citation_match: 30
+  mechanism_match: 20
+  confidence_match: 10
+  rationale_quality: 10
+
+references:
+  - "Dvela-Levitt M et al. Small molecule targets TMED9 and promotes lysosomal degradation to reverse proteinopathy. Cell. 2019;178(3):521-535.e23."
+  - "Rampoldi L et al. Allelism of MCKD, FJHN and GCKD. Hum Mol Genet. 2003"
+  - "Kirby A et al. MUC1 VNTR mutations in ADTKD. Nat Genet. 2013"

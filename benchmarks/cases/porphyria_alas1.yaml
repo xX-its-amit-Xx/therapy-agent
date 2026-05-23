@@ -1,0 +1,24 @@
+id: porphyria_alas1
+name: "AHP — ALAS1 derepression → givosiran"
+category: curated
+
+input:
+  gene: "HMBS"
+  mutation: "heterozygous HMBS loss-of-function causing toxic ALA/PBG accumulation when ALAS1 is induced"
+  disease_phenotype: "acute intermittent porphyria with life-threatening neurovisceral attacks triggered by drugs, fasting, or hormones"
+
+expected_outputs:
+  target_protein: "ALAS1"
+  target_aliases: ["ALAS1", "givosiran", "Givlaari", "delta-aminolevulinate synthase 1"]
+  modulation_type: "siRNA_ASO"
+  key_citations:
+    - "givosiran"
+    - "Givlaari"
+    - "ENVISION"
+    - "ALAS1"
+  mechanism_class: "lof"
+  min_confidence: 0.75
+
+references:
+  - "Balwani M et al. Phase 3 Trial of RNAi Therapeutic Givosiran for Acute Intermittent Porphyria. NEJM 2020"
+  - "Sardh E et al. Prevention of porphyria attacks with givosiran. NEJM 2019"

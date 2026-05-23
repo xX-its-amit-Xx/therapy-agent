@@ -1,0 +1,35 @@
+# Benchmark Case 1: Ekterly/HAE
+# Expected: target KLKB1, cite sebetralstat (FDA approved July 2025)
+id: ekterly_serping1
+name: "HAE — SERPING1 LoF → Ekterly/sebetralstat"
+category: primary
+
+input:
+  gene: "SERPING1"
+  mutation: "frameshift or large deletion causing haploinsufficiency of C1 esterase inhibitor"
+  disease_phenotype: "hereditary angioedema (HAE) with recurrent subcutaneous and mucosal edema attacks"
+
+expected_outputs:
+  target_protein: "KLKB1"         # plasma kallikrein
+  target_aliases: ["plasma kallikrein", "KLKB1", "kallikrein B1"]
+  modulation_type: "inhibitor"
+  key_citations:
+    - "sebetralstat"
+    - "Ekterly"
+    - "KalVista"
+    - "KONFIDENT"
+  mechanism_class: "lof"
+  min_confidence: 0.80
+
+grading:
+  target_match: 30       # points: target_protein contains KLKB1 or plasma kallikrein
+  citation_match: 30     # points: any key_citation appears
+  mechanism_match: 20    # points: mechanism_class correct
+  confidence_match: 10   # points: confidence >= min_confidence
+  rationale_quality: 10  # points: rationale explains kallikrein-kinin logic
+
+references:
+  - "Webb DJ et al. KONFIDENT phase 3 trial, KalVista Pharmaceuticals, 2025"
+  - "Riedl MA et al. New England Journal of Medicine 2020 (berotralstat)"
+  - "Kaplan AP & Ghebrehiwet B. J Allergy Clin Immunol 2010"
+  - "FDA approves Ekterly (sebetralstat) for hereditary angioedema, July 2025"
