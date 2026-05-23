@@ -21,6 +21,8 @@ dependencies = [
     "pyyaml>=6.0",
     "tenacity>=8.3.0",
     "python-dotenv>=1.0.0",
+    "g2p-rag>=0.1.0",
+    "fda-strategy-triples>=0.1.0",
 ]
 
 [project.optional-dependencies]

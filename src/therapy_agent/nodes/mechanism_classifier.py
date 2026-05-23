@@ -4,12 +4,15 @@ from therapy_agent.state import AgentState
 import anthropic
 
 
+from therapy_agent.config import get_model
+
+
 def _get_client():
     return anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
 
 def _get_model() -> str:
-    return os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
+    return get_model()
 
 
 SYSTEM = """You are a molecular geneticist specializing in rare-disease mechanisms.
@@ -71,6 +74,7 @@ async def mechanism_classifier_node(state: AgentState) -> dict:
             "mechanism_confidence": float(data["confidence"]),
             "mechanism_reasoning": data["reasoning"],
             "reasoning_trace": [f"Mechanism: {data['mechanism']} (confidence={data['confidence']:.2f}): {data['reasoning']}"],
+            "token_usage": [{"node": "mechanism_classifier", "input_tokens": response.usage.input_tokens, "output_tokens": response.usage.output_tokens}],
         }
     except Exception as e:
         return {

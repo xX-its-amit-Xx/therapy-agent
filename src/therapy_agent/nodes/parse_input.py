@@ -4,12 +4,15 @@ from therapy_agent.state import AgentState
 import anthropic
 
 
+from therapy_agent.config import get_model
+
+
 def _get_client():
     return anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
 
 def _get_model() -> str:
-    return os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
+    return get_model()
 
 
 async def parse_input_node(state: AgentState) -> dict:
@@ -43,6 +46,7 @@ Return ONLY valid JSON, no markdown."""
             "mutation_type": data.get("mutation_type", "other"),
             "phenotype_terms": data.get("phenotype_terms", [state["disease_phenotype"]]),
             "reasoning_trace": [f"Parsed: gene={data.get('gene_symbol')}, mutation_type={data.get('mutation_type')}, notes={data.get('notes', '')}"],
+            "token_usage": [{"node": "parse_input", "input_tokens": response.usage.input_tokens, "output_tokens": response.usage.output_tokens}],
         }
     except Exception as e:
         return {

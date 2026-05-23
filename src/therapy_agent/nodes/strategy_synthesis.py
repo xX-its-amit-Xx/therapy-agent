@@ -4,12 +4,15 @@ from therapy_agent.state import AgentState
 import anthropic
 
 
+from therapy_agent.config import get_model
+
+
 def _get_client():
     return anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
 
 def _get_model() -> str:
-    return os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
+    return get_model()
 
 
 SYSTEM = """You are an expert translational medicine scientist specializing in rare-disease drug discovery.
@@ -177,6 +180,7 @@ Apply the mechanism-to-strategy rules. Return ONLY valid JSON matching the strat
             "reasoning_trace": [f"Strategy: target={strategy['target_protein']}, modulation={strategy['modulation_type']}, confidence={strategy['confidence_score']:.2f}"],
             "citations": new_citations,
             "retry_count": retry + 1,
+            "token_usage": [{"node": "strategy_synthesis", "input_tokens": response.usage.input_tokens, "output_tokens": response.usage.output_tokens}],
         }
     except Exception as e:
         return {

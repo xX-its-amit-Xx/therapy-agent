@@ -22,6 +22,8 @@ class AgentState(TypedDict):
     reasoning_trace: Annotated[list[str], operator.add]
     citations: Annotated[list[str], operator.add]
     errors: Annotated[list[str], operator.add]
+    # token usage per LLM call: {"node": str, "input_tokens": int, "output_tokens": int}
+    token_usage: Annotated[list[dict], operator.add]
     # ── node outputs (replaced each time) ────────────────────────────
     gene_symbol: Optional[str]
     mutation_type: Optional[str]      # frameshift / missense / nonsense / splice / cnv / other
@@ -35,6 +37,7 @@ class AgentState(TypedDict):
     pathway_context: Optional[str]
     candidate_targets: Optional[list[dict]]
     approved_drugs: Optional[list[dict]]
+    g2p_chunks: Optional[list[dict]]
     strategy: Optional[TherapeuticStrategy]
     critique_notes: Optional[list[str]]
     final_strategy: Optional[TherapeuticStrategy]
@@ -50,6 +53,7 @@ def make_initial_state(gene: str, mutation: str, disease_phenotype: str) -> Agen
         reasoning_trace=[],
         citations=[],
         errors=[],
+        token_usage=[],
         gene_symbol=None,
         mutation_type=None,
         phenotype_terms=None,
@@ -62,6 +66,7 @@ def make_initial_state(gene: str, mutation: str, disease_phenotype: str) -> Agen
         pathway_context=None,
         candidate_targets=None,
         approved_drugs=None,
+        g2p_chunks=None,
         strategy=None,
         critique_notes=None,
         final_strategy=None,
