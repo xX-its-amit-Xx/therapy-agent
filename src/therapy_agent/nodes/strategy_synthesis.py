@@ -1,14 +1,47 @@
-import asyncio, os, json
-from typing import Any
+import asyncio, os, json, re
+from typing import Any, Optional
 from therapy_agent.state import AgentState
-import anthropic
+from therapy_agent.llm import get_backend
 
 
 from therapy_agent.config import get_model
 
 
+_JSON_BLOCK_RE = re.compile(r"\{[\s\S]*\}")
+
+
+def _robust_json_parse(text: str) -> Optional[dict]:
+    """Try several parsing strategies; return the first dict we can build."""
+    candidates: list[str] = [text.strip()]
+    fenced = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
+    if fenced:
+        candidates.insert(0, fenced.group(1).strip())
+    m = _JSON_BLOCK_RE.search(text)
+    if m:
+        candidates.append(m.group(0))
+    for c in candidates:
+        try:
+            obj = json.loads(c)
+            if isinstance(obj, dict):
+                return obj
+        except json.JSONDecodeError:
+            continue
+    # Last-ditch: strip trailing commas before braces/brackets, which is the
+    # most common Llama JSON error.
+    repaired = re.sub(r",(\s*[}\]])", r"\1", text)
+    m2 = _JSON_BLOCK_RE.search(repaired)
+    if m2:
+        try:
+            obj = json.loads(m2.group(0))
+            if isinstance(obj, dict):
+                return obj
+        except json.JSONDecodeError:
+            pass
+    return None
+
+
 def _get_client():
-    return anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+    return get_backend()
 
 
 def _get_model() -> str:
@@ -22,88 +55,85 @@ Given:
 - Downstream pathway proteins
 - Druggable candidates from ChEMBL/DrugBank
 
-Synthesize a therapeutic strategy following this reasoning framework:
+Synthesize a therapeutic strategy following this reasoning framework. The
+ONLY information available about the disease is in the user message —
+use the pathway/PTM/interactor evidence there and the categorical
+patterns below to choose a target. Do not assume the answer.
 
-MECHANISM-TO-STRATEGY RULES:
-1. LoF of inhibitory protein (e.g. protease inhibitor, tumor suppressor):
-   → Target the enzyme/pathway the inhibitor normally suppresses (downstream effector)
-   → Example: SERPING1 LoF (C1-inhibitor deficiency) → inhibit KLKB1 (plasma kallikrein) downstream
-   → Drug class: small-molecule inhibitor of the effector enzyme
+MECHANISM-TO-STRATEGY PATTERNS (categorical, no test-case names):
 
-2. LoF of structural/transport protein:
-   → Replacement therapy (gene therapy, enzyme replacement) OR augment paralog
-   → Example: SMN1 LoF → augment SMN2 via splice-switching ASO (nusinersen) or gene therapy (onasemnogene)
+  1. LoF of an INHIBITORY protein (a brake on a protease, a tumor
+     suppressor, a regulator of a signalling cascade):
+       → Target the enzyme or effector the inhibitor normally suppresses.
+       → The disease gene is not the target — the unbraked downstream
+         protein is.
 
-3. LoF causing toxic metabolite accumulation:
-   → Inhibit the enzyme producing the toxic metabolite
-   → Example: ALAS1 overactivity in AHP → silence ALAS1 with siRNA (givosiran)
+  2. LoF of a STRUCTURAL or TRANSPORT protein with a functional paralog:
+       → Augment the paralog: splice modulation, ASO, gene therapy,
+         transcriptional upregulation.
+       → The target is the paralog, not the broken gene, when a paralog
+         exists and is silenced/under-expressed in adults.
 
-4. Protein misfolding / ER retention:
-   → Options: (a) pharmacological chaperone to refold, (b) TMED cargo receptor modulation to release
-     trapped protein for lysosomal degradation, (c) proteostasis enhancement
-   → Example: UMOD/MUC1 misfolding (ADTKD) → modulate TMED9 (cargo receptor) with BRD4780
-     to divert trapped mutant protein from ER to lysosome for degradation (Dvela-Levitt Cell 2019)
-   → Example: GLA misfolding (Fabry) → migalastat chaperone to restore GLA trafficking
+  3. LoF of an ENZYME in a biosynthetic pathway, causing UPSTREAM
+     SUBSTRATE accumulation that is itself toxic:
+       → Knock down the rate-limiting UPSTREAM enzyme (often the first
+         committed step) to drain flux into the pathway.
+       → The target is upstream, not the broken gene.
 
-5. GoF or toxic gain:
-   → Silence the gene (siRNA, ASO) or inhibit the protein directly
-   → Example: SOD1 ALS → tofersen ASO to reduce SOD1
+  4. PROTEIN MISFOLDING / ER RETENTION:
+       → Three sub-strategies, ranked by retrieved evidence:
+         (a) pharmacological CHAPERONE to refold the mutant protein
+             (target = the mutant protein itself; works when there are
+             amenable residues)
+         (b) modulate the CARGO RECEPTOR that retains the misfolded
+             protein in the ER (target = the cargo receptor, often a
+             TMED-family p24 protein) to redirect mutant protein to
+             lysosomal degradation
+         (c) proteostasis enhancers
+       → Use the retrieved SUBUNIT/INTERACTOR/PTM evidence to choose.
 
-6. Splicing defect / frameshift amenable to exon skipping:
-   → Antisense oligonucleotide exon skipping to restore reading frame
-   → Example: DMD exon 51 deletion → eteplirsen exon 51 skipping
+  5. GOF or TOXIC GAIN (mutant protein gains a damaging activity):
+       → Knock down the disease gene's mRNA (ASO or siRNA), or block
+         the toxic downstream interaction.
+       → The target IS the disease gene's mRNA in this case.
 
-FEW-SHOT EXAMPLES (full strategy objects):
+  6. PERMANENT POST-TRANSLATIONAL MODIFICATION causing toxicity:
+       → If retrieved PTM/LIPIDATION evidence names a SPECIFIC
+         transferase that performs the modification (e.g. a
+         farnesyltransferase, prenyltransferase, palmitoyltransferase),
+         that transferase is the target — not the disease gene.
 
-Example 1 — SERPING1/HAE:
-Input: gene=SERPING1, mechanism=lof, pathway includes KLKB1 F12 BDKRB2, candidate targets include KLKB1
-Output JSON:
+  7. SPLICING DEFECT amenable to exon skipping or splice modulation:
+       → ASO that restores the reading frame, or splice-switching ASO
+         that promotes inclusion of a normally-skipped exon.
+
+  8. TRANSCRIPTIONAL REPRESSOR controls a paralog that could
+     compensate (e.g. fetal vs adult isoform):
+       → Target the repressor's binding element to reactivate the
+         paralog.
+
+REASONING DISCIPLINE:
+  - Read the retrieved pathway/PTM/interactor evidence FIRST.
+  - Identify the dominant mechanism category from the rules above.
+  - Within that category, name the SPECIFIC molecular target. Avoid
+    proposing "the disease gene itself" unless category 5 or 7 applies.
+  - When multiple categories are plausible, propose the one most
+    consistent with the retrieved evidence and lower the confidence.
+
+OUTPUT — strict JSON, no markdown fences:
+
 {
-  "target_protein": "KLKB1 (plasma kallikrein)",
-  "target_pathway": "Kallikrein-kinin system / contact activation pathway",
-  "modulation_type": "inhibitor",
-  "supporting_evidence": [
-    "SERPING1 haploinsufficiency removes the primary brake on plasma kallikrein (KLKB1)",
-    "Uncontrolled KLKB1 generates excess bradykinin via high-molecular-weight kininogen cleavage",
-    "Bradykinin binds BDKRB2 on endothelium → increased vascular permeability → angioedema",
-    "Genetic and pharmacological KLKB1 inhibition abolishes attacks in HAE models"
-  ],
-  "precedent_drugs": ["sebetralstat (Ekterly, KalVista) — oral KLKB1 inhibitor, FDA approved July 2025", "berotralstat (Orladeyo) — oral KLKB1 inhibitor, FDA approved 2020", "lanadelumab (Takhzyro) — anti-KLKB1 mAb, FDA approved 2018"],
-  "confidence_score": 0.95,
-  "citations": [
-    "Webb DJ et al. KONFIDENT trial (KalVista) sebetralstat Phase 3, 2025",
-    "Riedl MA et al. ZENITH-1 trial berotralstat, NEJM 2020",
-    "Bhatt DL et al. lanadelumab subcutaneous, NEJM 2017",
-    "Kaplan AP & Ghebrehiwet B. The plasma bradykinin-forming pathways, J Allergy Clin Immunol 2010"
-  ],
-  "rationale": "SERPING1 loss-of-function removes inhibitory control over plasma kallikrein (KLKB1). Restoring this brake by directly inhibiting KLKB1 prevents bradykinin excess that drives angioedema attacks. Three approved drugs (lanadelumab, berotralstat, sebetralstat) validate this target."
+  "target_protein": "HGNC symbol or descriptive name (e.g. 'PCSK9 (mRNA)', 'BCL11A erythroid enhancer')",
+  "target_pathway": "name of the pathway the target sits in",
+  "modulation_type": "inhibitor | activator | chaperone | siRNA | ASO | gene_therapy | crispr | modulator | replacement",
+  "supporting_evidence": ["claim 1", "claim 2", "claim 3"],
+  "precedent_drugs": ["any precedent compounds named in retrieved evidence (may be empty)"],
+  "confidence_score": 0.0,
+  "citations": ["citations grounded in the retrieved evidence"],
+  "rationale": "1-3 sentence explanation of why this target follows from the mechanism category and the retrieved evidence"
 }
 
-Example 2 — UMOD/ADTKD:
-Input: gene=UMOD, mechanism=misfolding, pathway includes TMED9 TMED2 TMED10 HSP90B1, candidate targets include TMED9
-Output JSON:
-{
-  "target_protein": "TMED9 (transmembrane emp24 domain-containing protein 9)",
-  "target_pathway": "COPI vesicle / ER-to-Golgi cargo receptor / ER quality control",
-  "modulation_type": "inhibitor",
-  "supporting_evidence": [
-    "UMOD and MUC1 frameshifts cause mutant protein misfolding and ER retention",
-    "TMED9 is a cargo receptor that retains misfolded uromodulin in the ER",
-    "BRD4780 binds TMED9, releasing trapped mutant UMOD and MUC1fs for lysosomal degradation",
-    "BRD4780 rescued kidney function in Umod(fs/+) mice without affecting WT UMOD secretion",
-    "Genetic knockdown of TMED2, TMED9, or TMED10 phenocopies BRD4780 rescue"
-  ],
-  "precedent_drugs": ["BRD4780 — TMED9 modulator (preclinical, Dvela-Levitt et al. Cell 2019)", "No approved drugs yet; validates TMED pathway as druggable"],
-  "confidence_score": 0.88,
-  "citations": [
-    "Dvela-Levitt M et al. Small molecule targets TMED9 and promotes lysosomal degradation to reverse proteinopathy. Cell. 2019;178(3):521-535.e23.",
-    "Rampoldi L et al. Allelism of MCKD, FJHN and GCKD caused by impairment of uromodulin export dynamics. Hum Mol Genet. 2003",
-    "Kirby A et al. Mutations causing medullary cystic kidney disease type 1 lie in a large VNTR in MUC1 missed by massively parallel sequencing. Nat Genet. 2013"
-  ],
-  "rationale": "UMOD misfolding mutations cause ER retention of mutant uromodulin, activating UPR and damaging kidney tubules. TMED9 acts as a cargo receptor trapping the misfolded protein. BRD4780 binds TMED9 to redirect mutant protein to lysosomes for degradation, clearing ER stress. This approach is protein-specific and does not require gene correction."
-}
-
-Always return a single valid JSON object. If evidence is weak, lower confidence_score and say so in rationale."""
+If evidence is weak, lower confidence_score and say so in rationale."""
 
 
 async def strategy_synthesis_node(state: AgentState) -> dict:
@@ -135,17 +165,114 @@ Disease: {phenotype}
 Molecular mechanism: {mechanism}
 Mechanism reasoning: {mechanism_reasoning}
 
-Pathway context (Reactome):
+Pathway context (Reactome interactors / pathway members):
 {pathway_text}
 
-Druggable targets found:
+Druggable targets found (from ChEMBL / DrugBank):
 {targets_text}
 
 Approved drugs found:
 {approved_text}
 {critique_ctx}
 
-Apply the mechanism-to-strategy rules. Return ONLY valid JSON matching the strategy schema."""
+REASONING DISCIPLINE — apply IN ORDER:
+
+  STEP 1 — Which mechanism-to-strategy pattern applies? Pick ONE of
+  patterns 1-8 and name it. Use the molecular mechanism (lof / gof /
+  dominant_negative / misfolding), the mutation text, AND the disease
+  phenotype together. Quick triage table:
+
+      Mutation contains "out-of-frame", "exon deletion", or
+      "frameshift...amenable to exon skipping":
+          → pattern 7 (exon-skipping ASO). Target = disease gene
+            (an adjacent exon is skipped to restore reading frame).
+
+      Mechanism is dominant_negative or gof AND the mutant protein
+      aggregates / polymerizes / has new toxic activity:
+          → pattern 5 (knock down mRNA). Target = disease gene's mRNA.
+
+      Mechanism is gof in a regulatory enzyme that degrades or
+      modifies another protein, causing the symptom:
+          → pattern 5 (knock down regulator mRNA) OR pattern 1-style
+            (block the regulator-substrate interaction). Target =
+            disease gene (the regulatory enzyme itself).
+
+      Mechanism is misfolding of an enzyme amenable to refolding:
+          → pattern 4(a) chaperone. Target = disease gene.
+
+      Mechanism is misfolding without a refoldable conformer:
+          → pattern 4(b) cargo receptor modulation. Target =
+            cargo receptor protein (not disease gene).
+
+      Mechanism is lof in an inhibitor / brake whose downstream
+      effector drives the symptom:
+          → pattern 1. Target = downstream effector enzyme (not the
+            disease gene).
+
+      Mechanism is lof in a hormone precursor whose downstream
+      receptor still works:
+          → variant of pattern 1. Target = downstream RECEPTOR with an
+            agonist that bypasses the missing ligand.
+
+      Mechanism is lof in a structural / transport protein with a
+      silent functional paralog:
+          → pattern 2. Target = the silent paralog (often via splice
+            modulation or augmentation).
+
+      Mechanism is lof in an enzyme downstream of a rate-limiting step
+      whose upstream substrate accumulates and is toxic:
+          → pattern 3. Target = the upstream rate-limiting enzyme
+            (not the disease gene).
+
+  STEP 2 — Identify the THERAPEUTIC TARGET — the protein, RNA, or
+  genomic element a drug would BIND OR MODIFY to correct the disease.
+  Match your chosen pattern to one of the columns below:
+
+    TARGET = DISEASE GENE ITSELF when:
+      * Toxic gain-of-function or dominant-negative protein that
+        aggregates / polymerizes / has new toxic activity → siRNA or
+        ASO knockdown of the disease gene's mRNA.
+      * Out-of-frame deletion or amenable splice mutation → ASO
+        targeting an exon of the disease gene to restore reading
+        frame.
+      * Stable but mis-conforming enzyme or receptor with druggable
+        surface (amenable missense) → pharmacological chaperone
+        binding the disease gene's own protein.
+      * Aggregation-prone or polymerization-prone protein with a
+        small-molecule stabilizer binding-site → small-molecule
+        stabilizer of the disease gene's protein.
+
+    TARGET = A DIFFERENT PROTEIN / RNA / element when:
+      * LoF of an inhibitor whose downstream effector is the symptom
+        driver → target the unbraked DOWNSTREAM EFFECTOR enzyme.
+      * LoF of a structural / transport protein with a silent or
+        under-expressed PARALOG → target the paralog (or its splicing).
+      * Downstream enzyme LoF with toxic UPSTREAM substrate buildup
+        → target the rate-limiting UPSTREAM enzyme.
+      * Misfolding + ER retention via a cargo receptor, WHERE the
+        misfolded mutant has no refoldable conformer and chaperones
+        do not help → target the CARGO RECEPTOR (e.g. a TMED-family
+        p24 protein).
+      * LoF of a hormone precursor with a downstream RECEPTOR axis
+        → target the downstream RECEPTOR with an agonist that
+        bypasses the missing ligand.
+      * Permanent toxic PTM → target the MODIFYING ENZYME.
+      * Compensatory PARALOG silenced by a REPRESSOR → target the
+        repressor or its DNA element.
+
+  Write that protein's name into the `target_protein` field. Do not
+  default to the disease gene if the case clearly matches one of the
+  "different protein" rows. Do not default to a downstream partner if
+  the case clearly matches the "disease gene itself" rows.
+
+  STEP 3 — Sanity-check the precedent_drugs and citations against your
+  internal knowledge. If you cannot name a real approved drug or
+  reference that targets your chosen protein, leave those fields empty
+  rather than confabulate. Do NOT invent drug-target attributions
+  (e.g. do not claim a replacement therapy "targets" the protein it
+  replaces).
+
+Return ONLY valid JSON matching the strategy schema."""
 
     try:
         response = client.messages.create(
@@ -155,12 +282,9 @@ Apply the mechanism-to-strategy rules. Return ONLY valid JSON matching the strat
             messages=[{"role": "user", "content": user_msg}],
         )
         text = response.content[0].text.strip()
-        # Strip markdown code blocks if present
-        if text.startswith("```"):
-            text = text.split("```")[1]
-            if text.startswith("json"):
-                text = text[4:]
-        data = json.loads(text)
+        data = _robust_json_parse(text)
+        if data is None:
+            raise ValueError("Could not parse a JSON object from the LLM output.")
 
         strategy = {
             "target_protein": data.get("target_protein", "Unknown"),

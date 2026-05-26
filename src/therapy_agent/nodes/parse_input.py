@@ -1,14 +1,35 @@
-import asyncio, os, json
+import asyncio, os, json, re
 from typing import Any
 from therapy_agent.state import AgentState
-import anthropic
+from therapy_agent.llm import get_backend
 
 
 from therapy_agent.config import get_model
 
 
+_JSON_BLOCK_RE = re.compile(r"\{[\s\S]*\}")
+
+
+def _robust_json_parse(text: str):
+    candidates = [text.strip()]
+    fenced = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
+    if fenced:
+        candidates.insert(0, fenced.group(1).strip())
+    m = _JSON_BLOCK_RE.search(text)
+    if m:
+        candidates.append(m.group(0))
+    for c in candidates:
+        try:
+            obj = json.loads(c)
+            if isinstance(obj, dict):
+                return obj
+        except json.JSONDecodeError:
+            continue
+    return None
+
+
 def _get_client():
-    return anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+    return get_backend()
 
 
 def _get_model() -> str:
@@ -40,7 +61,7 @@ Return ONLY valid JSON, no markdown."""
             max_tokens=512,
             messages=[{"role": "user", "content": prompt}],
         )
-        data = json.loads(response.content[0].text.strip())
+        data = _robust_json_parse(response.content[0].text.strip()) or {}
         return {
             "gene_symbol": data.get("gene_symbol", state["gene"].upper()),
             "mutation_type": data.get("mutation_type", "other"),

@@ -1,14 +1,35 @@
-import asyncio, os, json
+import asyncio, os, json, re
 from typing import Any
 from therapy_agent.state import AgentState
-import anthropic
+from therapy_agent.llm import get_backend
 
 
 from therapy_agent.config import get_model
 
 
+_JSON_BLOCK_RE = re.compile(r"\{[\s\S]*\}")
+
+
+def _robust_json_parse(text: str):
+    candidates = [text.strip()]
+    fenced = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
+    if fenced:
+        candidates.insert(0, fenced.group(1).strip())
+    m = _JSON_BLOCK_RE.search(text)
+    if m:
+        candidates.append(m.group(0))
+    for c in candidates:
+        try:
+            obj = json.loads(c)
+            if isinstance(obj, dict):
+                return obj
+        except json.JSONDecodeError:
+            continue
+    return None
+
+
 def _get_client():
-    return anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+    return get_backend()
 
 
 def _get_model() -> str:
@@ -25,21 +46,24 @@ MECHANISM TYPES:
 - misfolding: Protein misfolds, often leading to ER retention, aggregation, or UPR
 - mislocalization: Protein reaches correct conformation but wrong cellular compartment
 
-FEW-SHOT EXAMPLES:
-Input: SERPING1 frameshift, C1-inhibitor deficiency, hereditary angioedema
-Output: {"mechanism": "lof", "confidence": 0.95, "reasoning": "Frameshift in SERPING1 causes haploinsufficiency of C1-esterase inhibitor, reducing inhibition of plasma kallikrein and Factor XIIa, leading to bradykinin overproduction and angioedema attacks."}
+OUTPUT SCHEMA (no test-case-specific examples — apply your knowledge to
+the input directly):
 
-Input: UMOD frameshift, protein misfolding ER retention, ADTKD
-Output: {"mechanism": "misfolding", "confidence": 0.92, "reasoning": "Uromodulin frameshift mutations cause protein misfolding and ER retention in kidney tubule epithelial cells, activating UPR and leading to tubular dysfunction."}
+{"mechanism": "lof|gof|dominant_negative|misfolding|mislocalization",
+ "confidence": <float in [0,1]>,
+ "reasoning": "<2-3 sentences naming the protein-level consequence and how
+                it produces the disease phenotype>"}
 
-Input: MUC1 frameshift (fs), ADTKD-MUC1
-Output: {"mechanism": "misfolding", "confidence": 0.90, "reasoning": "MUC1 frameshift creates a toxic mutant protein that misfolds and accumulates in the ER of kidney collecting duct cells."}
-
-Input: HBB p.Glu6Val (sickle), hemolytic anemia, vasoocclusion
-Output: {"mechanism": "misfolding", "confidence": 0.88, "reasoning": "HbS polymerizes under deoxygenation due to Val6 hydrophobic patch; disease is driven by sickling rather than classic LoF."}
-
-Input: DMD exon deletion, Duchenne muscular dystrophy
-Output: {"mechanism": "lof", "confidence": 0.97, "reasoning": "Out-of-frame deletion eliminates dystrophin, causing complete protein absence and progressive myonecrosis."}
+HEURISTICS:
+- Frameshift, nonsense, large deletion in a non-toxic protein → usually lof.
+- Frameshift/missense that yields a protein-product retained in the ER,
+  with kidney/muscle/liver phenotype involving cellular stress → misfolding.
+- Missense that causes intracellular polymerization or aggregation under
+  physiological conditions → misfolding (toxic aggregation subtype).
+- Repeat expansion that yields a toxic RNA or protein → gof.
+- Missense in a transmembrane domain altering channel gating → can be
+  gof (constitutive activation) or lof (loss of conductance); use the
+  phenotype to disambiguate.
 
 Return ONLY valid JSON."""
 
@@ -68,11 +92,13 @@ async def mechanism_classifier_node(state: AgentState) -> dict:
             system=SYSTEM,
             messages=[{"role": "user", "content": user_msg}],
         )
-        data = json.loads(response.content[0].text.strip())
+        data = _robust_json_parse(response.content[0].text.strip())
+        if not data or "mechanism" not in data:
+            raise ValueError("mechanism_classifier could not parse JSON")
         return {
             "molecular_mechanism": data["mechanism"],
-            "mechanism_confidence": float(data["confidence"]),
-            "mechanism_reasoning": data["reasoning"],
+            "mechanism_confidence": float(data.get("confidence", 0.5)),
+            "mechanism_reasoning": data.get("reasoning", ""),
             "reasoning_trace": [f"Mechanism: {data['mechanism']} (confidence={data['confidence']:.2f}): {data['reasoning']}"],
             "token_usage": [{"node": "mechanism_classifier", "input_tokens": response.usage.input_tokens, "output_tokens": response.usage.output_tokens}],
         }

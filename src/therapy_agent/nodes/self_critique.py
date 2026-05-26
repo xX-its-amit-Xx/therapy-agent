@@ -1,14 +1,35 @@
-import asyncio, os, json
+import asyncio, os, json, re
 from typing import Any
 from therapy_agent.state import AgentState
-import anthropic
+from therapy_agent.llm import get_backend
 
 
 from therapy_agent.config import get_model
 
 
+_JSON_BLOCK_RE = re.compile(r"\{[\s\S]*\}")
+
+
+def _robust_json_parse(text: str):
+    candidates = [text.strip()]
+    fenced = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
+    if fenced:
+        candidates.insert(0, fenced.group(1).strip())
+    m = _JSON_BLOCK_RE.search(text)
+    if m:
+        candidates.append(m.group(0))
+    for c in candidates:
+        try:
+            obj = json.loads(c)
+            if isinstance(obj, dict):
+                return obj
+        except json.JSONDecodeError:
+            continue
+    return None
+
+
 def _get_client():
-    return anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+    return get_backend()
 
 
 def _get_model() -> str:
@@ -66,11 +87,7 @@ Be rigorous. Flag any confabulated citations or unlikely claims."""
             messages=[{"role": "user", "content": user_msg}],
         )
         text = response.content[0].text.strip()
-        if text.startswith("```"):
-            text = text.split("```")[1]
-            if text.startswith("json"):
-                text = text[4:]
-        data = json.loads(text)
+        data = _robust_json_parse(text) or {}
 
         verdict = data.get("verdict", "accept")
         adj = float(data.get("confidence_adjustment", 0.0))
