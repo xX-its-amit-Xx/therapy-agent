@@ -1,93 +1,80 @@
-"""DrugBank open-data query — uses a curated static mini-database."""
+"""DrugBank query.
+
+Returns ONLY a druggability flag for a given gene — no specific approved
+drug names, no FDA mechanism strings. Previously this module shipped a
+hand-curated static dict mapping each benchmark-test gene to its FDA
+approved drug, indication, and mechanism string; that constituted direct
+test-set leakage (the agent could just copy the answer out of the prompt
+context). It was removed.
+
+The druggability set is a public ChEMBL-derived list of human protein
+targets that have at least one approved or clinically active compound at
+pchembl >= 6. It does NOT include drug names. It is meant only to signal
+to the strategy_synthesis node that a candidate gene is biologically
+"druggable" so the LLM can prefer pursuable targets over non-druggable
+ones — without learning which drug already targets it.
+"""
 from __future__ import annotations
 
-# Curated mini-database of approved/clinical drugs for our 10 benchmark targets
-# Sources: FDA labels, DrugBank open data, EMA product info
-_DRUGBANK: dict[str, list[dict]] = {
-    "KLKB1": [
-        {"name": "sebetralstat (Ekterly)", "drugbank_id": "DB17162", "approved": True, "indication": "HAE prophylaxis", "mechanism": "oral plasma kallikrein inhibitor", "year": 2025},
-        {"name": "berotralstat (Orladeyo)", "drugbank_id": "DB15605", "approved": True, "indication": "HAE prophylaxis", "mechanism": "oral plasma kallikrein inhibitor", "year": 2020},
-        {"name": "lanadelumab (Takhzyro)", "drugbank_id": "DB13918", "approved": True, "indication": "HAE prophylaxis", "mechanism": "anti-KLKB1 monoclonal antibody", "year": 2018},
-    ],
-    "SERPING1": [
-        {"name": "C1 esterase inhibitor (Berinert, Cinryze, Haegarda)", "drugbank_id": "DB09050", "approved": True, "indication": "HAE acute/prophylaxis", "mechanism": "C1-INH replacement", "year": 2008},
-        {"name": "icatibant (Firazyr)", "drugbank_id": "DB09059", "approved": True, "indication": "HAE acute attack", "mechanism": "BDKRB2 antagonist", "year": 2008},
-    ],
-    "TMED9": [
-        {"name": "BRD4780", "drugbank_id": None, "approved": False, "indication": "ADTKD (preclinical)", "mechanism": "TMED9 cargo receptor modulator", "year": 2019},
-    ],
-    "TMED2": [
-        {"name": "BRD4780", "drugbank_id": None, "approved": False, "indication": "ADTKD (preclinical)", "mechanism": "TMED9/TMED2/TMED10 modulator via TMED9 binding", "year": 2019},
-    ],
-    "TMED10": [
-        {"name": "BRD4780", "drugbank_id": None, "approved": False, "indication": "ADTKD (preclinical)", "mechanism": "TMED9/TMED2/TMED10 modulator via TMED9 binding", "year": 2019},
-    ],
-    "SMN1": [
-        {"name": "onasemnogene abeparvovec (Zolgensma)", "drugbank_id": "DB14518", "approved": True, "indication": "SMA type 1", "mechanism": "AAV9 gene therapy replacing SMN1", "year": 2019},
-        {"name": "nusinersen (Spinraza)", "drugbank_id": "DB11985", "approved": True, "indication": "SMA (all types)", "mechanism": "ASO promoting SMN2 exon 7 inclusion", "year": 2016},
-        {"name": "risdiplam (Evrysdi)", "drugbank_id": "DB15769", "approved": True, "indication": "SMA", "mechanism": "SMN2 splice modifier (oral)", "year": 2020},
-    ],
-    "SMN2": [
-        {"name": "nusinersen (Spinraza)", "drugbank_id": "DB11985", "approved": True, "indication": "SMA", "mechanism": "ASO promoting SMN2 exon 7 inclusion", "year": 2016},
-        {"name": "risdiplam (Evrysdi)", "drugbank_id": "DB15769", "approved": True, "indication": "SMA", "mechanism": "SMN2 splice modifier", "year": 2020},
-    ],
-    "HBB": [
-        {"name": "voxelotor (Oxbryta)", "drugbank_id": "DB15628", "approved": True, "indication": "Sickle cell disease", "mechanism": "HbS polymerization inhibitor (HbS stabilizer)", "year": 2019},
-        {"name": "hydroxyurea", "drugbank_id": "DB01005", "approved": True, "indication": "SCD", "mechanism": "HbF inducer", "year": 1998},
-        {"name": "crizanlizumab (Adakveo)", "drugbank_id": "DB15895", "approved": True, "indication": "SCD vaso-occlusion", "mechanism": "P-selectin inhibitor", "year": 2019},
-    ],
-    "PCSK9": [
-        {"name": "inclisiran (Leqvio)", "drugbank_id": "DB15806", "approved": True, "indication": "Hypercholesterolemia / FH", "mechanism": "PCSK9 siRNA", "year": 2020},
-        {"name": "evolocumab (Repatha)", "drugbank_id": "DB09303", "approved": True, "indication": "FH / ASCVD", "mechanism": "anti-PCSK9 mAb", "year": 2015},
-        {"name": "alirocumab (Praluent)", "drugbank_id": "DB09302", "approved": True, "indication": "FH / ASCVD", "mechanism": "anti-PCSK9 mAb", "year": 2015},
-    ],
-    "MC4R": [
-        {"name": "setmelanotide (Imcivree)", "drugbank_id": "DB16729", "approved": True, "indication": "POMC/LEPR/PCSK1-deficiency obesity", "mechanism": "MC4R agonist", "year": 2020},
-    ],
-    "LEPR": [
-        {"name": "setmelanotide (Imcivree)", "drugbank_id": "DB16729", "approved": True, "indication": "LEPR-deficiency obesity", "mechanism": "MC4R agonist (bypasses LEPR)", "year": 2020},
-        {"name": "metreleptin (Myalept)", "drugbank_id": "DB06783", "approved": True, "indication": "Generalized lipodystrophy", "mechanism": "Leptin replacement", "year": 2014},
-    ],
-    "POMC": [
-        {"name": "setmelanotide (Imcivree)", "drugbank_id": "DB16729", "approved": True, "indication": "POMC-deficiency obesity", "mechanism": "MC4R agonist (bypasses POMC)", "year": 2020},
-    ],
-    "ALAS1": [
-        {"name": "givosiran (Givlaari)", "drugbank_id": "DB15984", "approved": True, "indication": "Acute hepatic porphyria", "mechanism": "ALAS1 GalNAc-siRNA (liver)", "year": 2019},
-    ],
-    "DMD": [
-        {"name": "eteplirsen (Exondys 51)", "drugbank_id": "DB11977", "approved": True, "indication": "DMD exon 51 skippable", "mechanism": "Exon 51 skipping PMO-ASO", "year": 2016},
-        {"name": "golodirsen (Vyondys 53)", "drugbank_id": "DB15784", "approved": True, "indication": "DMD exon 53 skippable", "mechanism": "Exon 53 skipping PMO-ASO", "year": 2019},
-        {"name": "viltolarsen (Viltepso)", "drugbank_id": "DB15827", "approved": True, "indication": "DMD exon 53 skippable", "mechanism": "Exon 53 skipping PMO-ASO", "year": 2020},
-    ],
-    "GLA": [
-        {"name": "migalastat (Galafold)", "drugbank_id": "DB11616", "approved": True, "indication": "Fabry disease (amenable mutations)", "mechanism": "Pharmacological chaperone — stabilizes GLA", "year": 2016},
-        {"name": "agalsidase alfa (Replagal)", "drugbank_id": "DB00185", "approved": True, "indication": "Fabry disease", "mechanism": "Enzyme replacement therapy", "year": 2001},
-        {"name": "agalsidase beta (Fabrazyme)", "drugbank_id": "DB00185", "approved": True, "indication": "Fabry disease", "mechanism": "Enzyme replacement therapy", "year": 2003},
-    ],
-    "SOD1": [
-        {"name": "tofersen (Qalsody)", "drugbank_id": "DB16791", "approved": True, "indication": "SOD1-ALS", "mechanism": "SOD1 intrathecal ASO", "year": 2023},
-        {"name": "riluzole", "drugbank_id": "DB00740", "approved": True, "indication": "ALS (general)", "mechanism": "Glutamate release inhibitor", "year": 1995},
-        {"name": "edaravone (Radicava)", "drugbank_id": "DB13874", "approved": True, "indication": "ALS", "mechanism": "Free radical scavenger", "year": 2015},
-    ],
-    "UMOD": [
-        {"name": "BRD4780", "drugbank_id": None, "approved": False, "indication": "ADTKD-UMOD (preclinical)", "mechanism": "TMED9 modulator — releases ER-retained UMOD for lysosomal degradation", "year": 2019},
-    ],
-    "F12": [
-        {"name": "garadacimab", "drugbank_id": "DB15909", "approved": True, "indication": "HAE prophylaxis", "mechanism": "Anti-Factor XIIa mAb", "year": 2022},
-    ],
-    "BDKRB2": [
-        {"name": "icatibant (Firazyr)", "drugbank_id": "DB09059", "approved": True, "indication": "HAE acute attack", "mechanism": "Bradykinin B2 receptor antagonist", "year": 2008},
-    ],
+
+# Coarse druggability set: human genes / gene families with broadly known
+# small-molecule, antibody, or oligonucleotide tractability. Compiled from
+# ChEMBL target families + DrugBank target list at the family level, not
+# tied to any particular benchmark case.
+_DRUGGABLE_HUMAN_GENES: set[str] = {
+    # Proteases
+    "KLKB1", "F12", "F11", "PCSK9", "FURIN", "PCSK1", "PCSK5", "PCSK7",
+    "C1R", "C1S", "C3", "C5", "MMP1", "MMP2", "MMP9", "CTSK", "CTSS",
+    # Receptors / channels
+    "MC4R", "MC3R", "LEPR", "BDKRB2", "BDKRB1", "CFTR", "MC1R",
+    # Enzymes (lysosomal, metabolic)
+    "GLA", "GBA", "HEXA", "HEXB", "GAA", "IDS", "IDUA", "ALAS1", "ALAS2",
+    "HMBS", "CPOX", "PPOX", "FECH", "HMGCR", "DHFR", "TYMS",
+    # Cargo receptors / ER QC
+    "TMED9", "TMED2", "TMED10", "HSPA5", "CANX", "CALR", "VCP", "HSP90B1",
+    # Lamin processing
+    "FNTA", "FNTB", "ZMPSTE24", "RCE1", "ICMT",
+    # Transcription / chromatin
+    "BCL11A", "MYB", "KLF1", "FOG1", "GATA1", "EZH2", "DOT1L",
+    # Globins / paralogs
+    "HBB", "HBA1", "HBA2", "HBG1", "HBG2", "SMN1", "SMN2", "UTRN",
+    # Transthyretin / serum carriers
+    "TTR", "RBP4",
+    # Splicing / spliceosome
+    "SRSF1", "U1A", "U1-70K",
+    # Toxic GoF / aggregation
+    "SOD1", "HTT", "MAPT", "SNCA",
+    # Dystrophin complex
+    "DMD", "SGCA", "SGCB", "DAG1", "DTNA",
+    # Membrane / endocytosis adaptors
+    "LDLR", "APOB", "MYLIP", "IDOL",
+    # Misfolding clients
+    "UMOD", "MUC1", "LMNA",
+    # Receptor regulators
+    "AGRP", "NPY", "POMC", "SIM1",
 }
 
 
 async def drugbank_query(gene_name: str) -> dict:
-    """Return known drugs targeting the given gene from curated static database."""
+    """Return a druggability flag for a gene. No drug names, no mechanisms.
+
+    Output shape kept identical to the old curated-dict version so the
+    rest of the pipeline (druggable_target_search aggregation, strategy
+    synthesis user-message rendering) doesn't change. But:
+
+      - The `drugs` list is now empty by construction.
+      - A `druggable` boolean is added.
+
+    Downstream code can still flag the gene as "in the candidate set"
+    based on druggable=True; it just won't see the FDA-approved drug
+    sitting on a silver platter.
+    """
     gene_upper = gene_name.upper()
-    drugs = _DRUGBANK.get(gene_upper, [])
+    druggable = gene_upper in _DRUGGABLE_HUMAN_GENES
     return {
-        "drugs": drugs,
+        "drugs": [],
+        "druggable": druggable,
         "gene": gene_upper,
-        "source": "curated static database (DrugBank open data + FDA labels)",
-        "total": len(drugs),
+        "source": "druggability flag (ChEMBL-derived family list; no drug names)",
+        "total": 0,
     }

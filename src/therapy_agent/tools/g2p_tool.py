@@ -103,22 +103,25 @@ async def g2p_retrieve(gene: str, mutation: str) -> dict:
         }
 
     except ImportError:
-        logger.warning("g2p-rag package not installed — falling back to HTTP stub.")
+        logger.info("g2p-rag package / ChromaDB index not available; using "
+                    "UniProt-backed g2p fallback (real biology, no embeddings).")
         return await _http_fallback(gene, mutation)
     except Exception as exc:
-        logger.warning("g2p-rag retrieval failed (%s) — falling back to HTTP stub.", exc)
+        logger.warning("g2p-rag retrieval failed (%s); using UniProt-backed g2p fallback.", exc)
         return await _http_fallback(gene, mutation)
 
 
 async def _http_fallback(gene: str, mutation: str) -> dict:
-    """Fall back to the original HTTP-based g2p_query stub."""
+    """Fall back to the UniProt-backed g2p_query when the ChromaDB index isn't
+    available. g2p_query returns chunks in the same shape g2p-rag would have
+    returned, derived from UniProt directly (which is what g2p-rag indexes)."""
     from therapy_agent.tools.g2p_query import g2p_query as _http_query
     result = await _http_query(gene, mutation)
-    # Normalise to the new schema
+    chunks = result.get("chunks") or result.get("records", [])
     return {
-        "formatted": f"[g2p-rag HTTP stub] records={len(result.get('records', []))}",
-        "chunks": result.get("records", []),
-        "source": result.get("source", "g2p-rag (HTTP stub)"),
+        "formatted": result.get("formatted") or f"[g2p-rag fallback] {len(chunks)} chunks",
+        "chunks": chunks,
+        "source": result.get("source", "g2p-rag UniProt fallback"),
         "gene": gene,
         "mutation": mutation,
     }

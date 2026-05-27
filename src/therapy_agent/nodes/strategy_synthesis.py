@@ -143,15 +143,30 @@ async def strategy_synthesis_node(state: AgentState) -> dict:
     mechanism = state.get("molecular_mechanism", "unknown")
     mechanism_reasoning = state.get("mechanism_reasoning", "")
     pathway_genes = state.get("pathway_genes") or []
+    pathway_context = state.get("pathway_context", "")
     candidate_targets = state.get("candidate_targets") or []
-    approved_drugs = state.get("approved_drugs") or []
+    g2p_chunks = state.get("g2p_chunks") or []
+    g2p_data = state.get("g2p_data") or {}
     phenotype = state["disease_phenotype"]
     mutation = state["mutation"]
     retry = state.get("retry_count", 0)
 
-    targets_text = json.dumps(candidate_targets[:8], indent=2) if candidate_targets else "No druggable targets found from database search"
+    # Strip specific drug names from candidate-target ChEMBL output before
+    # showing it to the LLM. The agent should learn "PCSK9 is druggable",
+    # not "inclisiran targets PCSK9".
+    sanitized_targets = []
+    for ct in candidate_targets[:10]:
+        sanitized_targets.append({
+            "gene_name": ct.get("gene_name", ""),
+            "druggable": True,
+            "n_chembl_compounds": len(ct.get("chembl_compounds", []) or []),
+            "n_drugbank_drugs": len(ct.get("drugbank_drugs", []) or []),
+        })
+    targets_text = json.dumps(sanitized_targets, indent=2) if sanitized_targets else "No druggable targets found"
     pathway_text = ", ".join(pathway_genes[:20]) if pathway_genes else "Not found"
-    approved_text = json.dumps(approved_drugs[:5], indent=2) if approved_drugs else "None found"
+    g2p_text = g2p_data.get("formatted") if isinstance(g2p_data, dict) else ""
+    if not g2p_text:
+        g2p_text = "No g2p-rag chunks retrieved."
 
     # On retry, add critique context
     critique_ctx = ""
@@ -165,14 +180,17 @@ Disease: {phenotype}
 Molecular mechanism: {mechanism}
 Mechanism reasoning: {mechanism_reasoning}
 
-Pathway context (Reactome interactors / pathway members):
+Pathway interactors / members (Reactome):
 {pathway_text}
 
-Druggable targets found (from ChEMBL / DrugBank):
-{targets_text}
+g2p-rag biology chunks (UniProt FUNCTION / PATHWAY / SUBUNIT / PTM /
+LIPIDATION / DISEASE — these are the load-bearing evidence for choosing
+a target):
+{g2p_text}
 
-Approved drugs found:
-{approved_text}
+Druggability of candidate targets (does the gene have known small-molecule
+or antibody tractability? — booleans only, no drug names):
+{targets_text}
 {critique_ctx}
 
 REASONING DISCIPLINE — apply IN ORDER:

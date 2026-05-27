@@ -10,28 +10,36 @@ async def druggable_target_search_node(state: AgentState) -> dict:
     gene = state.get("gene_symbol") or state["gene"]
     mechanism = state.get("molecular_mechanism", "lof")
 
-    # Always include the primary gene and its direct interactors
-    search_genes = list(dict.fromkeys([gene] + pathway_genes[:12]))
-
-    # For misfolding: also search ER quality control proteins
-    if mechanism in ("misfolding", "mislocalization"):
-        qc_genes = ["HSPA5", "CANX", "CALR", "TMED9", "TMED2", "TMED10", "VCP", "HSP90B1"]
-        search_genes = list(dict.fromkeys(search_genes + qc_genes))
+    # Always include the primary gene and its direct interactors. We
+    # deliberately do NOT inject a curated ER-quality-control gene list
+    # (TMED9/TMED2/TMED10 etc.) when the mechanism is misfolding. That
+    # short-circuited the BRD4780/UMOD benchmark case by hand-placing
+    # the answer in the candidate set. The Reactome interactor list for
+    # the disease gene already surfaces these partners when they're
+    # biologically real.
+    search_genes = list(dict.fromkeys([gene] + pathway_genes[:14]))
 
     candidate_targets = []
-    approved_drugs_list = []
     errors = []
 
-    # Query ChEMBL and DrugBank in parallel for top genes
+    # Query ChEMBL (human-only, druggability count) and DrugBank
+    # (druggability flag only — no specific approved-drug names) in
+    # parallel. Both tools now return information about TRACTABILITY,
+    # not about which approved drug already targets the gene; that
+    # avoids handing the answer to strategy_synthesis.
     async def query_gene(g):
         try:
             chembl_result = await chembl_query(g)
             db_result = await drugbank_query(g)
-            compounds = chembl_result.get("compounds", [])
-            drugs = db_result.get("drugs", [])
-            if compounds or drugs:
-                return {"gene_name": g, "chembl_compounds": compounds[:3], "drugbank_drugs": drugs[:3], "druggable": bool(compounds or drugs)}
-        except Exception as ex:
+            druggable = bool(chembl_result.get("druggable") or db_result.get("druggable"))
+            if druggable:
+                return {
+                    "gene_name": g,
+                    "druggable": True,
+                    "chembl_n_active": chembl_result.get("n_active_compounds", 0),
+                    "chembl_target_id": chembl_result.get("target_id"),
+                }
+        except Exception:
             return None
         return None
 
@@ -41,21 +49,21 @@ async def druggable_target_search_node(state: AgentState) -> dict:
     for r in results:
         if r and r.get("druggable"):
             candidate_targets.append(r)
-            for d in r.get("drugbank_drugs", []):
-                if d.get("approved"):
-                    approved_drugs_list.append(d)
 
     trace = [
-        f"Searched {len(search_genes)} genes for druggable targets",
-        f"Found {len(candidate_targets)} druggable targets, {len(approved_drugs_list)} with approved drugs",
+        f"Searched {len(search_genes)} genes for druggability",
+        f"Found {len(candidate_targets)} druggable candidates (no specific drug names retrieved — blinded)",
     ]
     if candidate_targets:
         names = [t["gene_name"] for t in candidate_targets[:6]]
-        trace.append(f"Top targets: {', '.join(names)}")
+        trace.append(f"Top druggable candidates: {', '.join(names)}")
 
     return {
         "candidate_targets": candidate_targets,
-        "approved_drugs": approved_drugs_list,
+        # approved_drugs intentionally left empty: passing specific
+        # approved-drug names into the LLM prompt was the largest source
+        # of test-set leakage in the previous benchmark configuration.
+        "approved_drugs": [],
         "reasoning_trace": trace,
         "errors": errors,
     }
