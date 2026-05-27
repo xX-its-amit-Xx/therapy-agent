@@ -143,30 +143,41 @@ async def strategy_synthesis_node(state: AgentState) -> dict:
     mechanism = state.get("molecular_mechanism", "unknown")
     mechanism_reasoning = state.get("mechanism_reasoning", "")
     pathway_genes = state.get("pathway_genes") or []
-    pathway_context = state.get("pathway_context", "")
+    pathway_context_oneliner = (state.get("pathway_context") or "").strip()
     candidate_targets = state.get("candidate_targets") or []
-    g2p_chunks = state.get("g2p_chunks") or []
     g2p_data = state.get("g2p_data") or {}
+    interactor_g2p = state.get("interactor_g2p_data") or {}
     phenotype = state["disease_phenotype"]
     mutation = state["mutation"]
     retry = state.get("retry_count", 0)
 
-    # Strip specific drug names from candidate-target ChEMBL output before
-    # showing it to the LLM. The agent should learn "PCSK9 is druggable",
-    # not "inclisiran targets PCSK9".
+    # Render candidate-target druggability without ANY specific drug names.
+    # Reads the v0.3 schema (n_active_compounds via chembl_n_active) — not
+    # the old chembl_compounds / drugbank_drugs which were silently always
+    # empty lists in the previous version.
     sanitized_targets = []
     for ct in candidate_targets[:10]:
         sanitized_targets.append({
             "gene_name": ct.get("gene_name", ""),
             "druggable": True,
-            "n_chembl_compounds": len(ct.get("chembl_compounds", []) or []),
-            "n_drugbank_drugs": len(ct.get("drugbank_drugs", []) or []),
+            "chembl_active_compounds_n": int(ct.get("chembl_n_active", 0) or 0),
+            "chembl_target_id": ct.get("chembl_target_id"),
         })
     targets_text = json.dumps(sanitized_targets, indent=2) if sanitized_targets else "No druggable targets found"
     pathway_text = ", ".join(pathway_genes[:20]) if pathway_genes else "Not found"
-    g2p_text = g2p_data.get("formatted") if isinstance(g2p_data, dict) else ""
-    if not g2p_text:
-        g2p_text = "No g2p-rag chunks retrieved."
+    g2p_text = (g2p_data.get("formatted") if isinstance(g2p_data, dict) else "") or "No g2p-rag chunks retrieved for the disease gene."
+
+    # Render g2p-rag biology for the top candidate interactors so the LLM
+    # can compare biology across plausible targets rather than picking
+    # blind from a list of gene symbols. Capped per case to keep tokens
+    # bounded.
+    if interactor_g2p:
+        interactor_blocks = []
+        for g, text in list(interactor_g2p.items())[:5]:
+            interactor_blocks.append(f"--- candidate {g} ---\n{text}")
+        interactor_text = "\n\n".join(interactor_blocks)
+    else:
+        interactor_text = "No interactor biology retrieved."
 
     # On retry, add critique context
     critique_ctx = ""
@@ -180,16 +191,22 @@ Disease: {phenotype}
 Molecular mechanism: {mechanism}
 Mechanism reasoning: {mechanism_reasoning}
 
+Pathway role of disease gene (one-liner):
+{pathway_context_oneliner or "(none retrieved)"}
+
 Pathway interactors / members (Reactome):
 {pathway_text}
 
-g2p-rag biology chunks (UniProt FUNCTION / PATHWAY / SUBUNIT / PTM /
-LIPIDATION / DISEASE — these are the load-bearing evidence for choosing
-a target):
+g2p-rag biology chunks for the DISEASE GENE (UniProt FUNCTION / PATHWAY /
+SUBUNIT / PTM / LIPIDATION / DISEASE):
 {g2p_text}
 
-Druggability of candidate targets (does the gene have known small-molecule
-or antibody tractability? — booleans only, no drug names):
+g2p-rag biology chunks for the TOP CANDIDATE INTERACTORS — compare these
+against the disease-gene biology above when picking the target:
+{interactor_text}
+
+Druggability of candidate targets (booleans + active-compound counts from
+ChEMBL human SINGLE PROTEIN targets only; NO specific drug names):
 {targets_text}
 {critique_ctx}
 

@@ -38,6 +38,9 @@ class AgentState(TypedDict):
     candidate_targets: Optional[list[dict]]
     approved_drugs: Optional[list[dict]]
     g2p_chunks: Optional[list[dict]]
+    # gene -> formatted UniProt biology text for top candidate interactors
+    # (populated by interactor_biology_lookup_node)
+    interactor_g2p_data: Optional[dict]
     strategy: Optional[TherapeuticStrategy]
     critique_notes: Optional[list[str]]
     final_strategy: Optional[TherapeuticStrategy]
@@ -67,6 +70,7 @@ def make_initial_state(gene: str, mutation: str, disease_phenotype: str) -> Agen
         candidate_targets=None,
         approved_drugs=None,
         g2p_chunks=None,
+        interactor_g2p_data=None,
         strategy=None,
         critique_notes=None,
         final_strategy=None,

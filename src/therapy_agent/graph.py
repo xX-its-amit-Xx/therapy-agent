@@ -8,6 +8,7 @@ from therapy_agent.nodes.variant_lookup import variant_lookup_node
 from therapy_agent.nodes.mechanism_classifier import mechanism_classifier_node
 from therapy_agent.nodes.pathway_expansion import pathway_expansion_node
 from therapy_agent.nodes.druggable_target_search import druggable_target_search_node
+from therapy_agent.nodes.interactor_biology_lookup import interactor_biology_lookup_node
 from therapy_agent.nodes.strategy_synthesis import strategy_synthesis_node
 from therapy_agent.nodes.self_critique import self_critique_node
 
@@ -27,6 +28,7 @@ def build_graph():
     builder.add_node("mechanism_classifier", mechanism_classifier_node)
     builder.add_node("pathway_expansion", pathway_expansion_node)
     builder.add_node("druggable_target_search", druggable_target_search_node)
+    builder.add_node("interactor_biology_lookup", interactor_biology_lookup_node)
     builder.add_node("strategy_synthesis", strategy_synthesis_node)
     builder.add_node("self_critique", self_critique_node)
 
@@ -35,7 +37,8 @@ def build_graph():
     builder.add_edge("variant_lookup", "mechanism_classifier")
     builder.add_edge("mechanism_classifier", "pathway_expansion")
     builder.add_edge("pathway_expansion", "druggable_target_search")
-    builder.add_edge("druggable_target_search", "strategy_synthesis")
+    builder.add_edge("druggable_target_search", "interactor_biology_lookup")
+    builder.add_edge("interactor_biology_lookup", "strategy_synthesis")
     builder.add_edge("strategy_synthesis", "self_critique")
     builder.add_conditional_edges(
         "self_critique",
