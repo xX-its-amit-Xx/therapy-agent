@@ -9,7 +9,10 @@ input:
 
 expected_outputs:
   target_protein: "PCSK9"
-  target_aliases: ["PCSK9", "inclisiran", "evolocumab", "LDLR"]
+  # NB: LDLR was previously in this alias list; removed because LDLR is the
+  # disease-mechanism receptor, not the therapeutic target. Inclisiran/
+  # evolocumab target PCSK9. Predicting "LDLR" would be a different strategy.
+  target_aliases: ["PCSK9", "inclisiran", "evolocumab", "proprotein convertase subtilisin/kexin type 9"]
   modulation_type: "siRNA_ASO"
   key_citations:
     - "inclisiran"

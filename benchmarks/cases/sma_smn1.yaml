@@ -9,7 +9,14 @@ input:
 
 expected_outputs:
   target_protein: "SMN2"
-  target_aliases: ["SMN2", "SMN1", "onasemnogene", "nusinersen", "gene therapy"]
+  # NB: SMN1 (the disease gene) was previously in this alias bag. Removed
+  # because predicting the disease gene unmodified isn't a recognized FDA
+  # strategy -- Spinraza targets SMN2 pre-mRNA splice site, Zolgensma
+  # delivers an SMN1 transgene via AAV9 (technically SMN1 again, but the
+  # therapeutic surface is the AAV-delivered cDNA, not the patient's
+  # broken SMN1). Including SMN1 in aliases lets the trivial
+  # disease-gene baseline auto-pass this case.
+  target_aliases: ["SMN2", "onasemnogene", "nusinersen", "SMN2 pre-mRNA"]
   modulation_type: "gene_therapy"
   key_citations:
     - "onasemnogene"

@@ -43,6 +43,7 @@ class AgentState(TypedDict):
     interactor_g2p_data: Optional[dict]
     strategy: Optional[TherapeuticStrategy]
     critique_notes: Optional[list[str]]
+    critique_pass_done: bool
     final_strategy: Optional[TherapeuticStrategy]
     retry_count: int
 
@@ -73,6 +74,7 @@ def make_initial_state(gene: str, mutation: str, disease_phenotype: str) -> Agen
         interactor_g2p_data=None,
         strategy=None,
         critique_notes=None,
+        critique_pass_done=False,
         final_strategy=None,
         retry_count=0,
     )

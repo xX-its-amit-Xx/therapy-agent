@@ -1,4 +1,5 @@
 import asyncio, os, json, re
+from collections import Counter
 from typing import Any, Optional
 from therapy_agent.state import AgentState
 from therapy_agent.llm import get_backend
@@ -8,6 +9,21 @@ from therapy_agent.config import get_model
 
 
 _JSON_BLOCK_RE = re.compile(r"\{[\s\S]*\}")
+
+
+def _close_unbalanced_braces(text: str) -> str:
+    """Best-effort repair when max_tokens truncates JSON mid-output. Appends
+    closing braces/brackets to balance counts; strips dangling commas."""
+    s = text
+    # strip dangling comma at end before close
+    s = re.sub(r",\s*$", "", s.rstrip())
+    open_obj = s.count("{") - s.count("}")
+    open_arr = s.count("[") - s.count("]")
+    if open_arr > 0:
+        s = s + "]" * open_arr
+    if open_obj > 0:
+        s = s + "}" * open_obj
+    return s
 
 
 def _robust_json_parse(text: str) -> Optional[dict]:
@@ -26,18 +42,155 @@ def _robust_json_parse(text: str) -> Optional[dict]:
                 return obj
         except json.JSONDecodeError:
             continue
-    # Last-ditch: strip trailing commas before braces/brackets, which is the
-    # most common Llama JSON error.
+    # Repairs: strip trailing comma before close, then close unbalanced braces
     repaired = re.sub(r",(\s*[}\]])", r"\1", text)
-    m2 = _JSON_BLOCK_RE.search(repaired)
-    if m2:
+    for variant in (repaired, _close_unbalanced_braces(repaired)):
+        m2 = re.search(r"\{[\s\S]*\}", variant)
+        if m2:
+            try:
+                obj = json.loads(m2.group(0))
+                if isinstance(obj, dict):
+                    return obj
+            except json.JSONDecodeError:
+                continue
+    # Last ditch: brace-close the raw text and try
+    closed = _close_unbalanced_braces(text)
+    m3 = re.search(r"\{[\s\S]*\}", closed)
+    if m3:
         try:
-            obj = json.loads(m2.group(0))
+            obj = json.loads(m3.group(0))
             if isinstance(obj, dict):
                 return obj
         except json.JSONDecodeError:
             pass
     return None
+
+
+# ── Stage 1: lightweight pattern selector (one focused LLM call) ──────────────
+
+_PATTERN_SELECTOR_SYSTEM = """You are a translational drug-discovery scientist. Given a disease gene, mutation and phenotype, pick ONE mechanism-to-strategy pattern from this table:
+
+  1. LOF of an inhibitor → target the unbraked downstream effector enzyme.
+  2. LOF of a structural/transport protein with a silent paralog → target the paralog.
+  3. LOF of a biosynthetic enzyme with toxic UPSTREAM substrate buildup → knock down the rate-limiting upstream enzyme.
+  4a. Misfolding amenable to refolding → chaperone for the disease gene's own protein.
+  4b. Misfolding via cargo receptor ER retention (no refoldable conformer) → target the cargo receptor (often a TMED-family p24).
+  5. GOF / dominant-negative / aggregation → knock down the disease gene's mRNA (ASO / siRNA).
+  6. LOF hormone precursor with intact downstream receptor → agonize the receptor to bypass the missing ligand.
+  7. Out-of-frame exon deletion or splice defect → splice-modulating ASO targeting an adjacent exon of the disease gene.
+  8. Transcriptional repressor controlling a useful paralog → disrupt the repressor / its DNA element.
+
+Return strict JSON:
+{
+  "pattern_id": "1" | "2" | "3" | "4a" | "4b" | "5" | "6" | "7" | "8",
+  "target_kind": "downstream_effector" | "paralog" | "upstream_enzyme" | "disease_gene_protein_chaperone" | "cargo_receptor" | "disease_gene_mRNA" | "downstream_receptor_agonist" | "disease_gene_exon_skip" | "repressor",
+  "reasoning": "<one sentence>"
+}
+"""
+
+
+async def _select_pattern(client, model: str, *, gene: str, mutation: str,
+                          phenotype: str, mechanism: str,
+                          mechanism_reasoning: str) -> dict:
+    """Stage 1: pick the categorical pattern + target_kind only."""
+    user = (
+        f"Disease gene: {gene}\n"
+        f"Mutation: {mutation}\n"
+        f"Disease phenotype: {phenotype}\n"
+        f"Molecular mechanism: {mechanism}\n"
+        f"Mechanism reasoning: {mechanism_reasoning}\n\n"
+        "Pick one pattern. Return JSON only."
+    )
+    try:
+        resp = client.messages.create(
+            model=model,
+            max_tokens=400,
+            system=_PATTERN_SELECTOR_SYSTEM,
+            messages=[{"role": "user", "content": user}],
+        )
+        data = _robust_json_parse(resp.content[0].text.strip()) or {}
+        return {
+            "pattern_id": str(data.get("pattern_id") or "").strip(),
+            "target_kind": str(data.get("target_kind") or "").strip(),
+            "reasoning": str(data.get("reasoning") or "").strip(),
+        }
+    except Exception as e:
+        return {"pattern_id": "", "target_kind": "", "reasoning": f"selector error: {e}"}
+
+
+# ── Stage 2: self-consistency vote on the specific target gene ────────────────
+
+_TARGET_PICKER_SYSTEM = """You are picking ONE specific target gene/RNA from a list of pathway candidates, given the pattern category already chosen and the biology of each candidate.
+
+Output strict JSON:
+{
+  "target_protein": "<HGNC symbol or 'GENE (mRNA)' or descriptive name>",
+  "rationale": "<2-3 sentences explaining why this candidate fits the chosen pattern>"
+}
+
+Rules:
+- For target_kind="disease_gene_mRNA": target_protein MUST be the disease gene (its mRNA).
+- For target_kind="disease_gene_exon_skip": target_protein MUST be the disease gene (e.g. "DMD").
+- For target_kind="disease_gene_protein_chaperone": target_protein MUST be the disease gene.
+- For target_kind="downstream_effector" / "upstream_enzyme" / "cargo_receptor" / "downstream_receptor_agonist" / "paralog" / "repressor": target_protein is a DIFFERENT gene. Pick from the candidates whose biology matches that role.
+
+Do not invent drug names. Do not name any FDA-approved drug.
+"""
+
+
+async def _pick_target_once(client, model: str, *, user_msg: str,
+                            temperature: float) -> dict:
+    try:
+        resp = client.messages.create(
+            model=model,
+            max_tokens=800,
+            system=_TARGET_PICKER_SYSTEM,
+            messages=[{"role": "user", "content": user_msg}],
+            temperature=temperature,
+        )
+        data = _robust_json_parse(resp.content[0].text.strip()) or {}
+        return {
+            "target_protein": str(data.get("target_protein") or "").strip(),
+            "rationale": str(data.get("rationale") or "").strip(),
+        }
+    except Exception:
+        return {"target_protein": "", "rationale": ""}
+
+
+def _canonical_target(t: str) -> str:
+    """Normalize a target string for vote tally — pull the first HGNC-shaped
+    symbol if present, else strip whitespace and case-fold."""
+    if not t:
+        return ""
+    m = re.search(r"\b[A-Z][A-Z0-9]{1,9}\b", t)
+    return (m.group(0) if m else t.strip()).upper()
+
+
+async def _pick_target_self_consistent(client, model: str, *, user_msg: str,
+                                       n_samples: int = 3) -> dict:
+    """Run target picker N times at moderate temperature, vote on canonical
+    target. Returns the most common pick and its rationale."""
+    samples = await asyncio.gather(*[
+        _pick_target_once(client, model, user_msg=user_msg, temperature=0.5)
+        for _ in range(n_samples)
+    ])
+    canonicals = [_canonical_target(s["target_protein"]) for s in samples if s["target_protein"]]
+    if not canonicals:
+        return {"target_protein": "", "rationale": "", "votes": Counter(), "samples": samples}
+    counter = Counter(canonicals)
+    winner_canonical, _ = counter.most_common(1)[0]
+    # Pick the first sample matching the winner (preserves a real rationale).
+    for s in samples:
+        if _canonical_target(s["target_protein"]) == winner_canonical:
+            return {
+                "target_protein": s["target_protein"],
+                "rationale": s["rationale"],
+                "votes": counter,
+                "samples": samples,
+            }
+    return {"target_protein": samples[0]["target_protein"],
+            "rationale": samples[0]["rationale"],
+            "votes": counter, "samples": samples}
 
 
 def _get_client():
@@ -309,37 +462,106 @@ REASONING DISCIPLINE — apply IN ORDER:
 
 Return ONLY valid JSON matching the strategy schema."""
 
+    # v0.5: 2-stage decomposition + self-consistency vote.
+    #
+    # Stage 1 (single short LLM call): pick the categorical pattern_id and
+    # target_kind. The small model is good at this when the task is
+    # narrow ("which of 8 patterns applies?") rather than the original
+    # one-shot "pick the pattern AND the gene AND the modality AND the
+    # rationale" combo.
+    #
+    # Stage 2 (3 LLM calls + majority vote): given the chosen pattern,
+    # pick the specific target gene from the candidates. Sample 3 times
+    # at temperature 0.5 to mitigate small-model variance on contested
+    # cases. The vote is on the canonical HGNC symbol of the prediction.
     try:
-        response = client.messages.create(
-            model=_get_model(),
-            max_tokens=1500,
-            system=SYSTEM,
-            messages=[{"role": "user", "content": user_msg}],
+        # On retry from self_critique, keep the prior pattern selection if
+        # we have one (we may want to revise the target gene, not the
+        # pattern category).
+        prior_pattern = state.get("strategy", {}).get("pattern_id") if state.get("strategy") else None
+        if retry > 0 and prior_pattern:
+            pattern = {
+                "pattern_id": prior_pattern,
+                "target_kind": state.get("strategy", {}).get("target_kind", ""),
+                "reasoning": "reusing prior pattern on revise",
+            }
+        else:
+            pattern = await _select_pattern(
+                client, _get_model(),
+                gene=gene, mutation=mutation, phenotype=phenotype,
+                mechanism=mechanism, mechanism_reasoning=mechanism_reasoning,
+            )
+
+        target_picker_user_msg = (
+            f"Disease gene: {gene}\n"
+            f"Mutation: {mutation}\n"
+            f"Disease phenotype: {phenotype}\n"
+            f"Mechanism: {mechanism}\n\n"
+            f"Pattern chosen: {pattern['pattern_id']} "
+            f"(target_kind = {pattern['target_kind']})\n"
+            f"Pattern reasoning: {pattern.get('reasoning', '')}\n\n"
+            f"Pathway role of disease gene: {pathway_context_oneliner or '(none)'}\n\n"
+            f"Pathway interactors (Reactome): {pathway_text}\n\n"
+            f"g2p-rag biology for the disease gene:\n{g2p_text}\n\n"
+            f"g2p-rag biology for top candidate interactors:\n{interactor_text}\n\n"
+            f"Druggability of candidates: {targets_text}\n"
+            f"{critique_ctx}\n\n"
+            "Pick the SPECIFIC target gene that fits the chosen pattern's target_kind.\n"
+            "Return JSON only."
         )
-        text = response.content[0].text.strip()
-        data = _robust_json_parse(text)
-        if data is None:
-            raise ValueError("Could not parse a JSON object from the LLM output.")
+
+        picker = await _pick_target_self_consistent(
+            client, _get_model(),
+            user_msg=target_picker_user_msg,
+            n_samples=3,
+        )
+
+        # Modality / confidence are derived from the chosen target_kind in
+        # a deterministic way -- avoids another LLM call and keeps the
+        # modulation_type field clean for scoring. Confidence reflects
+        # the vote margin: 3/3 -> 0.9, 2/3 -> 0.7, 1/3 -> 0.5.
+        kind_to_modality = {
+            "downstream_effector": "inhibitor",
+            "paralog": "splice_modifier",
+            "upstream_enzyme": "siRNA_ASO",
+            "disease_gene_protein_chaperone": "chaperone",
+            "cargo_receptor": "modulator",
+            "disease_gene_mRNA": "siRNA_ASO",
+            "downstream_receptor_agonist": "activator",
+            "disease_gene_exon_skip": "splice_modifier",
+            "repressor": "gene_therapy",
+        }
+        modality = kind_to_modality.get(pattern["target_kind"], "inhibitor")
+        max_votes = max((v for v in picker["votes"].values()), default=0)
+        confidence = {3: 0.9, 2: 0.7, 1: 0.5}.get(max_votes, 0.5)
 
         strategy = {
-            "target_protein": data.get("target_protein", "Unknown"),
-            "target_pathway": data.get("target_pathway", "Unknown"),
-            "modulation_type": data.get("modulation_type", "inhibitor"),
-            "supporting_evidence": data.get("supporting_evidence", []),
-            "precedent_drugs": data.get("precedent_drugs", []),
-            "confidence_score": float(data.get("confidence_score", 0.5)),
-            "citations": data.get("citations", []),
-            "rationale": data.get("rationale", ""),
+            "target_protein": picker["target_protein"] or "Unknown",
+            "target_pathway": pathway_text.split(",")[0].strip() if pathway_text else "Unknown",
+            "modulation_type": modality,
+            "supporting_evidence": [
+                f"Pattern {pattern['pattern_id']}: {pattern.get('reasoning', '')}",
+                picker.get("rationale", ""),
+            ],
+            "precedent_drugs": [],   # blinded: agent should NOT name drugs
+            "confidence_score": confidence,
+            "citations": [],
+            "rationale": picker.get("rationale", ""),
+            # Carry pattern/kind so self_critique and retry can reuse them.
+            "pattern_id": pattern["pattern_id"],
+            "target_kind": pattern["target_kind"],
         }
 
-        new_citations = data.get("citations", [])
-
+        trace = [
+            f"Stage1 pattern={pattern['pattern_id']} target_kind={pattern['target_kind']}",
+            f"Stage2 picks={dict(picker['votes'])} winner={strategy['target_protein']} "
+            f"confidence={confidence:.2f}",
+        ]
         return {
             "strategy": strategy,
-            "reasoning_trace": [f"Strategy: target={strategy['target_protein']}, modulation={strategy['modulation_type']}, confidence={strategy['confidence_score']:.2f}"],
-            "citations": new_citations,
+            "reasoning_trace": trace,
+            "citations": [],
             "retry_count": retry + 1,
-            "token_usage": [{"node": "strategy_synthesis", "input_tokens": response.usage.input_tokens, "output_tokens": response.usage.output_tokens}],
         }
     except Exception as e:
         return {

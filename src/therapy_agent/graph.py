@@ -14,9 +14,20 @@ from therapy_agent.nodes.self_critique import self_critique_node
 
 
 def should_revise(state: AgentState) -> str:
+    """Trigger one revise pass on every case (not just low-confidence ones).
+
+    v0.4 found that the 3B Llama reports 0.8-0.9 confidence for almost every
+    output -- including ones where the rationale describes a target the
+    `target_protein` field doesn't reflect (e.g. rationale names TMED9 as
+    the cargo receptor, target_protein says UMOD). Always firing one
+    critique pass gives the model a chance to align the target with its own
+    rationale before we score it. retry_count gating still caps total
+    iterations at 2.
+    """
     strategy = state.get("strategy")
     retry_count = state.get("retry_count", 0)
-    if strategy and strategy.get("confidence_score", 1.0) < 0.5 and retry_count < 2:
+    critique_pass_done = state.get("critique_pass_done", False)
+    if strategy and retry_count < 2 and not critique_pass_done:
         return "revise"
     return "done"
 
