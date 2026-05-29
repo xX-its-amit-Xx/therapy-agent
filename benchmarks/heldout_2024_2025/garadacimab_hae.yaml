@@ -1,0 +1,31 @@
+id: garadacimab_hae
+name: "Hereditary angioedema -> garadacimab (anti-Factor XIIa monoclonal)"
+category: heldout_2024
+approval_date: "2025-06-23"
+fda_approval: "Andembry (garadacimab) -- first FDA-approved anti-FXIIa for HAE prophylaxis"
+
+input:
+  gene: "SERPING1"
+  mutation: "heterozygous loss-of-function mutations in SERPING1 (frameshift, missense, or large deletion) causing haploinsufficiency of C1-esterase inhibitor"
+  disease_phenotype: "hereditary angioedema type I/II with recurrent attacks of subcutaneous and mucosal swelling driven by bradykinin overproduction; prophylactic indication"
+
+expected_outputs:
+  # HARD: target is upstream of plasma kallikrein in the contact-activation
+  # cascade. SERPING1 loss removes the brake on BOTH Factor XIIa AND
+  # plasma kallikrein; garadacimab inhibits FXIIa (encoded by F12) which
+  # is one step upstream of KLKB1 (kallikrein) in bradykinin generation.
+  # Either F12 or KLKB1 would be a defensible answer; ekterly_serping1
+  # already covers KLKB1, this case covers the F12 sibling target.
+  target_protein: "F12"
+  target_aliases: ["F12", "FXII", "Factor XII", "Factor XIIa", "garadacimab", "Andembry", "CSL312"]
+  modulation_type: "inhibitor"
+  key_citations:
+    - "garadacimab"
+    - "Andembry"
+    - "Craig VANGUARD"
+  mechanism_class: "lof"
+  min_confidence: 0.70
+
+references:
+  - "Craig TJ et al. Garadacimab Phase 3 in HAE prophylaxis. Lancet 2023 (VANGUARD)"
+  - "FDA approval letter, BLA 761357, 2025-06-23"

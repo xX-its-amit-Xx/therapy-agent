@@ -1,0 +1,26 @@
+id: resmetirom_mash
+name: "Metabolic dysfunction-associated steatohepatitis -> resmetirom (THRB agonist)"
+category: heldout_2024
+approval_date: "2024-03-14"
+fda_approval: "Rezdiffra (resmetirom) -- first FDA-approved drug for MASH"
+
+input:
+  gene: "THRB"
+  mutation: "no causal germline mutation; MASH is a complex metabolic disease where impaired hepatic thyroid-hormone signalling (low intra-hepatic T3 action via THR-beta) contributes to steatosis, inflammation, and fibrosis"
+  disease_phenotype: "metabolic dysfunction-associated steatohepatitis (MASH/NASH) with hepatic steatosis, lobular inflammation, hepatocyte ballooning, and stage 2-3 fibrosis"
+
+expected_outputs:
+  target_protein: "THRB"
+  target_aliases: ["THRB", "THR-beta", "thyroid hormone receptor beta", "resmetirom", "Rezdiffra"]
+  modulation_type: "activator"
+  key_citations:
+    - "resmetirom"
+    - "Rezdiffra"
+    - "Harrison MAESTRO-NASH"
+    - "Madrigal"
+  mechanism_class: "lof"
+  min_confidence: 0.75
+
+references:
+  - "Harrison SA et al. A Phase 3, Randomized, Controlled Trial of Resmetirom in NASH with Liver Fibrosis. NEJM 2024 (MAESTRO-NASH)"
+  - "FDA approval letter, NDA 217785, 2024-03-14"

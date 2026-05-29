@@ -1,0 +1,30 @@
+id: sotatercept_pah
+name: "Pulmonary arterial hypertension -> sotatercept (activin ligand trap)"
+category: heldout_2024
+approval_date: "2024-03-26"
+fda_approval: "Winrevair (sotatercept) -- first activin signalling inhibitor approved for PAH"
+
+input:
+  gene: "BMPR2"
+  mutation: "heterozygous loss-of-function mutations in BMPR2 cause heritable PAH; in idiopathic/connective-tissue-associated PAH the pathway-level imbalance between BMP and activin signalling drives pulmonary arterial remodelling"
+  disease_phenotype: "WHO Group 1 pulmonary arterial hypertension with elevated mean pulmonary arterial pressure, RV failure risk, and progressive functional class decline"
+
+expected_outputs:
+  # HARD: target is NOT the disease gene BMPR2 (which would require gene
+  # therapy). Sotatercept is an ActRIIA-Fc fusion that traps activin
+  # ligands (ACTIVIN A, GDF8, GDF11) upstream of the imbalanced
+  # pulmonary-arterial activin signalling.
+  target_protein: "ACVR2A"
+  target_aliases: ["ACVR2A", "ActRIIA", "activin", "INHBA", "GDF8", "GDF11", "sotatercept", "Winrevair"]
+  modulation_type: "inhibitor"
+  key_citations:
+    - "sotatercept"
+    - "Winrevair"
+    - "Hoeper STELLAR"
+  mechanism_class: "lof"
+  min_confidence: 0.70
+
+references:
+  - "Hoeper MM et al. Phase 3 Trial of Sotatercept for PAH. NEJM 2023 (STELLAR)"
+  - "Humbert M et al. Sotatercept on top of background PAH therapy. NEJM 2021 (PULSAR)"
+  - "FDA approval letter, BLA 761369, 2024-03-26"

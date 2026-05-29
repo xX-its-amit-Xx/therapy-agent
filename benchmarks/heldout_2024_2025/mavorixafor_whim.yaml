@@ -1,0 +1,27 @@
+id: mavorixafor_whim
+name: "WHIM syndrome -> mavorixafor (CXCR4 antagonist)"
+category: heldout_2024
+approval_date: "2024-04-29"
+fda_approval: "Xolremdi (mavorixafor) -- first targeted therapy for WHIM syndrome"
+
+input:
+  gene: "CXCR4"
+  mutation: "heterozygous gain-of-function truncating mutations in the CXCR4 C-terminal tail (e.g. p.R334X, p.E343X) that abolish receptor desensitization and produce persistent CXCL12 signalling"
+  disease_phenotype: "WHIM syndrome (Warts, Hypogammaglobulinemia, Infections, Myelokathexis) with neutrophils retained in the bone marrow and recurrent bacterial / HPV infections"
+
+expected_outputs:
+  # Note: target == disease gene (gain-of-function CXCR4 antagonized
+  # at the receptor).
+  target_protein: "CXCR4"
+  target_aliases: ["CXCR4", "mavorixafor", "Xolremdi", "X4P-001"]
+  modulation_type: "inhibitor"
+  key_citations:
+    - "mavorixafor"
+    - "Xolremdi"
+    - "Badolato 4WHIM"
+  mechanism_class: "gof"
+  min_confidence: 0.80
+
+references:
+  - "Badolato R et al. Mavorixafor in WHIM syndrome (4WHIM trial). NEJM 2024"
+  - "FDA approval letter, NDA 217640, 2024-04-29"

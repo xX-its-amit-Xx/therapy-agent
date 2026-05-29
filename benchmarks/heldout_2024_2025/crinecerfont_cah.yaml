@@ -1,0 +1,32 @@
+id: crinecerfont_cah
+name: "Congenital adrenal hyperplasia -> crinecerfont (CRF1 receptor antagonist)"
+category: heldout_2024
+approval_date: "2024-12-13"
+fda_approval: "Crenessity (crinecerfont) -- first non-glucocorticoid therapy for classic CAH"
+
+input:
+  gene: "CYP21A2"
+  mutation: "biallelic loss-of-function mutations (e.g. p.I172N, p.V281L, p.Q318X, large gene-conversion deletions) abolishing 21-hydroxylase activity"
+  disease_phenotype: "classic 21-hydroxylase deficiency congenital adrenal hyperplasia with cortisol deficiency, ACTH-driven adrenal androgen excess, salt wasting in severe forms, and supraphysiologic glucocorticoid replacement burden"
+
+expected_outputs:
+  # HARD: target is NOT the disease gene CYP21A2. The mechanism is
+  # 21-OH loss -> cortisol deficiency -> hypothalamic CRH and pituitary
+  # ACTH drive elevated -> adrenal cortex over-produces androgen precursors
+  # rather than cortisol. Blocking CRF receptor type 1 (CRHR1) on the
+  # pituitary reduces ACTH -> reduces adrenal androgen excess without
+  # requiring more glucocorticoid.
+  target_protein: "CRHR1"
+  target_aliases: ["CRHR1", "CRF1", "CRF-1 receptor", "corticotropin-releasing hormone receptor 1", "crinecerfont", "Crenessity"]
+  modulation_type: "inhibitor"
+  key_citations:
+    - "crinecerfont"
+    - "Crenessity"
+    - "Auchus CAHtalyst"
+  mechanism_class: "lof"
+  min_confidence: 0.65
+
+references:
+  - "Auchus RJ et al. Crinecerfont in classic CAH (CAHtalyst Adult). NEJM 2024"
+  - "Sarafoglou K et al. Crinecerfont in pediatric classic CAH. NEJM 2024"
+  - "FDA approval letter, NDA 218016, 2024-12-13"

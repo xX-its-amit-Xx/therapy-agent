@@ -1,0 +1,25 @@
+id: vorasidenib_glioma
+name: "IDH-mutant low-grade glioma -> vorasidenib (mutant IDH1/IDH2 inhibitor)"
+category: heldout_2024
+approval_date: "2024-08-06"
+fda_approval: "Voranigo (vorasidenib) -- first targeted therapy for IDH-mutant grade 2 glioma"
+
+input:
+  gene: "IDH1"
+  mutation: "p.R132H (or p.R132C/G/L) heterozygous neomorphic mutation in the active site, converting alpha-ketoglutarate to the oncometabolite (R)-2-hydroxyglutarate (2-HG)"
+  disease_phenotype: "World Health Organization grade 2 astrocytoma or oligodendroglioma harbouring an IDH1 (or IDH2) mutation"
+
+expected_outputs:
+  target_protein: "IDH1"
+  target_aliases: ["IDH1", "IDH2", "mutant IDH", "vorasidenib", "Voranigo", "isocitrate dehydrogenase"]
+  modulation_type: "inhibitor"
+  key_citations:
+    - "vorasidenib"
+    - "Voranigo"
+    - "Mellinghoff INDIGO"
+  mechanism_class: "gof"
+  min_confidence: 0.85
+
+references:
+  - "Mellinghoff IK et al. Vorasidenib in IDH1/2 mutant low-grade glioma. NEJM 2023 (INDIGO trial)"
+  - "FDA approval letter, NDA 218784, 2024-08-06"
