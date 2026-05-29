@@ -1,0 +1,24 @@
+id: melanoma_braf
+name: "BRAF-V600E melanoma -> vemurafenib / dabrafenib"
+category: canonical_oncology
+
+input:
+  gene: "BRAF"
+  mutation: "p.V600E activating point mutation in the kinase domain"
+  disease_phenotype: "metastatic cutaneous melanoma with BRAF V600E mutation"
+
+expected_outputs:
+  target_protein: "BRAF"
+  target_aliases: ["BRAF", "vemurafenib", "dabrafenib", "encorafenib", "Zelboraf", "Tafinlar"]
+  modulation_type: "inhibitor"
+  key_citations:
+    - "vemurafenib"
+    - "dabrafenib"
+    - "Chapman BRIM"
+    - "Hauschild"
+  mechanism_class: "gof"
+  min_confidence: 0.85
+
+references:
+  - "Chapman PB et al. Improved survival with vemurafenib in melanoma with BRAF V600E mutation. NEJM 2011 (BRIM-3)"
+  - "Hauschild A et al. Dabrafenib in BRAF-mutated metastatic melanoma. Lancet 2012"

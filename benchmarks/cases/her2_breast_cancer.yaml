@@ -1,0 +1,23 @@
+id: her2_breast_cancer
+name: "HER2-amplified breast cancer -> trastuzumab"
+category: canonical_oncology
+
+input:
+  gene: "ERBB2"
+  mutation: "ERBB2 (HER2) gene amplification or protein overexpression (IHC 3+ or FISH-positive)"
+  disease_phenotype: "metastatic breast cancer with HER2 overexpression / amplification"
+
+expected_outputs:
+  target_protein: "ERBB2"
+  target_aliases: ["ERBB2", "HER2", "trastuzumab", "Herceptin", "pertuzumab", "T-DM1", "ado-trastuzumab"]
+  modulation_type: "inhibitor"
+  key_citations:
+    - "trastuzumab"
+    - "Herceptin"
+    - "Slamon"
+  mechanism_class: "gof"
+  min_confidence: 0.85
+
+references:
+  - "Slamon DJ et al. Use of chemotherapy plus a monoclonal antibody against HER2 for metastatic breast cancer that overexpresses HER2. NEJM 2001"
+  - "Piccart-Gebhart MJ et al. Trastuzumab after adjuvant chemotherapy in HER2-positive breast cancer. NEJM 2005 (HERA)"

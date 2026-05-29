@@ -1,0 +1,33 @@
+id: migraine_cgrp
+name: "Chronic migraine CGRP axis -> erenumab (anti-CGRP-R)"
+category: canonical_neurology
+
+input:
+  gene: "CALCA"
+  mutation: "elevated calcitonin-gene-related-peptide (CGRP) release from trigeminal sensory neurons during migraine attacks (no germline mutation; pathway-level dysregulation)"
+  disease_phenotype: "chronic migraine with vasodilation and neurogenic inflammation in the trigeminovascular system"
+
+expected_outputs:
+  # HARD: the symptom driver is the CGRP peptide acting on its receptor.
+  # The first FDA-approved anti-migraine biologic erenumab targets the
+  # receptor (CALCRL + RAMP1 complex), not CGRP itself. fremanezumab /
+  # galcanezumab target the peptide. Either is acceptable.
+  target_protein: "CALCRL"
+  # Both the CGRP peptide (encoded by CALCA) AND the CGRP receptor
+  # (CALCRL + RAMP1) are validated FDA-approved targets:
+  #   - peptide: fremanezumab (Ajovy), galcanezumab (Emgality), eptinezumab (Vyepti)
+  #   - receptor: erenumab (Aimovig)
+  # So predicting either CALCA or CALCRL is correct.
+  target_aliases: ["CALCRL", "RAMP1", "CGRP receptor", "erenumab", "Aimovig", "fremanezumab", "galcanezumab", "eptinezumab", "CGRP", "CALCA", "calcitonin gene-related peptide"]
+  modulation_type: "inhibitor"
+  key_citations:
+    - "erenumab"
+    - "Aimovig"
+    - "Goadsby"
+    - "fremanezumab"
+  mechanism_class: "gof"
+  min_confidence: 0.75
+
+references:
+  - "Goadsby PJ et al. Erenumab for episodic migraine. NEJM 2017 (STRIVE)"
+  - "Silberstein SD et al. Fremanezumab for chronic migraine. NEJM 2017"

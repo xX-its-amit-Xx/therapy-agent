@@ -1,0 +1,27 @@
+id: ra_tnf
+name: "Rheumatoid arthritis TNF axis -> adalimumab / infliximab"
+category: canonical_immunology
+
+input:
+  gene: "TNF"
+  mutation: "elevated TNF expression in synovial macrophages and T cells driving chronic joint inflammation (no germline causal mutation; polygenic disease with TNF as dominant effector)"
+  disease_phenotype: "rheumatoid arthritis with symmetric polyarthritis, synovial pannus formation, and cartilage / bone erosion"
+
+expected_outputs:
+  # HARD: RA is polygenic so the "disease gene" framing is awkward, but
+  # TNF is the canonical effector pathway -- 5 FDA-approved anti-TNF
+  # biologics validate the target.
+  target_protein: "TNF"
+  target_aliases: ["TNF", "TNF-alpha", "adalimumab", "Humira", "infliximab", "Remicade", "etanercept", "Enbrel", "golimumab", "certolizumab"]
+  modulation_type: "inhibitor"
+  key_citations:
+    - "adalimumab"
+    - "Humira"
+    - "infliximab"
+    - "Lipsky ATTRACT"
+  mechanism_class: "gof"
+  min_confidence: 0.80
+
+references:
+  - "Lipsky PE et al. Infliximab and methotrexate in RA. NEJM 2000 (ATTRACT)"
+  - "Weinblatt ME et al. Adalimumab in RA. Arthritis Rheum 2003"

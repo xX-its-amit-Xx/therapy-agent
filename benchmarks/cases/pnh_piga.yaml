@@ -1,0 +1,27 @@
+id: pnh_piga
+name: "Paroxysmal nocturnal hemoglobinuria PIGA -> eculizumab (anti-C5)"
+category: canonical_complement
+
+input:
+  gene: "PIGA"
+  mutation: "acquired somatic loss-of-function mutations in PIGA in hematopoietic stem cells, causing deficiency of glycosylphosphatidylinositol (GPI) anchors"
+  disease_phenotype: "paroxysmal nocturnal hemoglobinuria with complement-mediated intravascular hemolysis, thrombosis, and bone-marrow failure"
+
+expected_outputs:
+  # HARD case: the disease gene PIGA is not druggable -- treatment blocks
+  # the COMPLEMENT EFFECTOR (C5) that lyses RBCs lacking GPI-anchored
+  # complement regulators (CD55, CD59).
+  target_protein: "C5"
+  target_aliases: ["C5", "eculizumab", "Soliris", "ravulizumab", "Ultomiris", "complement component 5"]
+  modulation_type: "inhibitor"
+  key_citations:
+    - "eculizumab"
+    - "Soliris"
+    - "Hillmen TRIUMPH"
+    - "ravulizumab"
+  mechanism_class: "lof"
+  min_confidence: 0.80
+
+references:
+  - "Hillmen P et al. The complement inhibitor eculizumab in PNH. NEJM 2006 (TRIUMPH)"
+  - "Lee JW et al. Ravulizumab vs eculizumab in PNH. Blood 2019"

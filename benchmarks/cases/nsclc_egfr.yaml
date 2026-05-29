@@ -1,0 +1,24 @@
+id: nsclc_egfr
+name: "EGFR-mutant NSCLC -> osimertinib / erlotinib"
+category: canonical_oncology
+
+input:
+  gene: "EGFR"
+  mutation: "exon 19 deletion or L858R activating point mutation causing constitutive kinase activation"
+  disease_phenotype: "non-small cell lung cancer (adenocarcinoma) with EGFR-mutant status, often non-smoker patients"
+
+expected_outputs:
+  target_protein: "EGFR"
+  target_aliases: ["EGFR", "erlotinib", "osimertinib", "gefitinib", "ErbB1", "epidermal growth factor receptor"]
+  modulation_type: "inhibitor"
+  key_citations:
+    - "osimertinib"
+    - "Tagrisso"
+    - "erlotinib"
+    - "Soria FLAURA"
+  mechanism_class: "gof"
+  min_confidence: 0.85
+
+references:
+  - "Soria JC et al. Osimertinib in Untreated EGFR-Mutated Advanced Non-Small-Cell Lung Cancer. NEJM 2018 (FLAURA trial)"
+  - "Mok TS et al. Gefitinib or carboplatin-paclitaxel in pulmonary adenocarcinoma. NEJM 2009 (IPASS)"
