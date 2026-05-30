@@ -1,6 +1,6 @@
 """Pluggable LLM backend.
 
-Two backends, one shape:
+Three backends, one shape:
 
     from therapy_agent.llm import get_backend
     client = get_backend()
@@ -13,12 +13,15 @@ Two backends, one shape:
     text = resp.content[0].text
     n_in, n_out = resp.usage.input_tokens, resp.usage.output_tokens
 
-The "anthropic" backend forwards directly to the Anthropic SDK. The
-"llama" backend runs a local GGUF model via llama-cpp-python and shapes
-the response to look like Anthropic's.
+- "anthropic"  -> forwards directly to the Anthropic SDK (Claude).
+- "llama"      -> local GGUF via llama-cpp-python, response shaped Anthropic-like.
+- "openai"     -> calls OpenAI Chat Completions API (GPT-4o / GPT-4.1 / o-series),
+                  response shaped Anthropic-like.
 
 Select with env var ``THERAPY_AGENT_LLM_BACKEND`` (default: anthropic).
 For the llama backend, ``LLAMA_MODEL_PATH`` points to the GGUF file.
+For the openai backend, ``OPENAI_API_KEY`` and optional ``OPENAI_MODEL``
+(default ``gpt-4o-mini``).
 """
 from __future__ import annotations
 
@@ -143,6 +146,77 @@ class _LlamaBackend:
         return self._messages
 
 
+# ── OpenAI backend ────────────────────────────────────────────────────────────
+
+class _OpenAIMessages:
+    """Mimics Anthropic's `client.messages.create(...)` against OpenAI's
+    Chat Completions API. Lets the rest of the pipeline (which targets
+    Anthropic's shape) run unchanged with GPT-4o / GPT-4.1 / etc."""
+
+    def __init__(self, backend: "_OpenAIBackend") -> None:
+        self._b = backend
+
+    def create(
+        self,
+        *,
+        model: str,
+        max_tokens: int,
+        messages: list[dict[str, Any]],
+        system: str = "",
+        temperature: float = 0.2,
+        **_: Any,
+    ) -> _Response:
+        chat_msgs: list[dict[str, str]] = []
+        if system:
+            chat_msgs.append({"role": "system", "content": system})
+        for m in messages:
+            content = m.get("content", "")
+            if isinstance(content, list):
+                parts = [c.get("text", "") for c in content
+                         if isinstance(c, dict) and c.get("type") == "text"]
+                content = "\n".join(p for p in parts if p)
+            chat_msgs.append({"role": m["role"], "content": content})
+
+        # OPENAI_MODEL takes precedence over whatever model string the
+        # caller hands us (the caller's `model` typically comes from
+        # therapy_agent.config.get_model() which is the Anthropic alias).
+        openai_model = os.environ.get("OPENAI_MODEL") or "gpt-4o-mini"
+
+        resp = self._b.client.chat.completions.create(
+            model=openai_model,
+            messages=chat_msgs,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+        text = resp.choices[0].message.content or ""
+        usage = resp.usage
+        return _Response(
+            content=[_TextBlock(text=text)],
+            usage=_Usage(
+                input_tokens=int(getattr(usage, "prompt_tokens", 0) or 0),
+                output_tokens=int(getattr(usage, "completion_tokens", 0) or 0),
+            ),
+            stop_reason=str(resp.choices[0].finish_reason or "stop"),
+            model=openai_model,
+        )
+
+
+class _OpenAIBackend:
+    def __init__(self) -> None:
+        import openai
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            raise RuntimeError(
+                "OpenAI backend selected but OPENAI_API_KEY env var is not set."
+            )
+        self.client = openai.OpenAI(api_key=api_key)
+        self._messages = _OpenAIMessages(self)
+
+    @property
+    def messages(self) -> _OpenAIMessages:
+        return self._messages
+
+
 # ── Singleton accessor ────────────────────────────────────────────────────────
 
 _BACKEND_CACHE: dict[str, Any] = {}
@@ -151,7 +225,8 @@ _BACKEND_CACHE: dict[str, Any] = {}
 def get_backend(name: str | None = None):
     """Return a singleton client of the chosen backend.
 
-    Backends are cached by name so Llama only loads once per process.
+    Backends are cached by name so Llama only loads once per process and
+    OpenAI / Anthropic API clients are reused (connection pooling).
     """
     if name is None:
         name = os.environ.get("THERAPY_AGENT_LLM_BACKEND", "anthropic").lower()
@@ -160,10 +235,12 @@ def get_backend(name: str | None = None):
             _BACKEND_CACHE[name] = _AnthropicBackend()
         elif name == "llama":
             _BACKEND_CACHE[name] = _LlamaBackend()
+        elif name == "openai":
+            _BACKEND_CACHE[name] = _OpenAIBackend()
         else:
             raise ValueError(
                 f"Unknown LLM backend {name!r}. "
-                "Choose from: anthropic, llama."
+                "Choose from: anthropic, llama, openai."
             )
     return _BACKEND_CACHE[name]
 
