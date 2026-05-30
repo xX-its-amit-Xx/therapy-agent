@@ -13,6 +13,8 @@ from __future__ import annotations
 import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+from therapy_agent.tools._cache import cached_async
+
 
 CHEMBL_BASE = "https://www.ebi.ac.uk/chembl/api/data"
 
@@ -25,6 +27,7 @@ async def _http_get(url: str, params: dict) -> httpx.Response:
         return await client.get(url, params=params)
 
 
+@cached_async("chembl")
 async def chembl_query(gene_name: str) -> dict:
     """Return druggability evidence for *gene_name* (human).
 

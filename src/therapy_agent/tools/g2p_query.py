@@ -18,6 +18,8 @@ from typing import Any
 import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+from therapy_agent.tools._cache import cached_async
+
 
 UNIPROT_SEARCH = "https://rest.uniprot.org/uniprotkb/search"
 
@@ -40,6 +42,7 @@ def _clean(text: str, *, max_chars: int = 600) -> str:
     return out
 
 
+@cached_async("uniprot")
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=8))
 async def _uniprot_lookup(gene: str) -> dict[str, Any]:
     """Fetch the reviewed human UniProt entry for *gene*. Retries on transient errors."""

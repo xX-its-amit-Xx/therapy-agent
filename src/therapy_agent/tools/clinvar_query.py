@@ -9,6 +9,8 @@ import os
 import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
+from therapy_agent.tools._cache import cached_async
+
 EUTILS_BASE = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
 NCBI_API_KEY = os.environ.get("NCBI_API_KEY", "")
 
@@ -26,6 +28,7 @@ async def _eutils_get(url: str, params: dict) -> httpx.Response:
         return r
 
 
+@cached_async("clinvar")
 async def clinvar_query(gene: str, mutation: str | None = None) -> dict:
     """Return ClinVar variant summaries for a gene (and optional mutation)."""
     try:

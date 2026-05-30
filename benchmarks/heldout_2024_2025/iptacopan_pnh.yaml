@@ -1,0 +1,30 @@
+id: iptacopan_pnh
+name: "PNH (proximal complement) -> iptacopan (Factor B inhibitor)"
+category: heldout_2024
+approval_date: "2023-12-05"
+fda_approval: "Fabhalta (iptacopan) -- first oral complement Factor B inhibitor for PNH"
+
+input:
+  gene: "PIGA"
+  mutation: "acquired somatic loss-of-function in PIGA in hematopoietic stem cells, causing GPI-anchor deficiency on the cell surface; FOR PATIENTS WITH RESIDUAL EXTRAVASCULAR HEMOLYSIS despite anti-C5 therapy"
+  disease_phenotype: "paroxysmal nocturnal hemoglobinuria with persistent extravascular hemolysis driven by C3 deposition on RBCs that escape C5 blockade"
+
+expected_outputs:
+  # HARD: same disease as pnh_piga (already in dev set) but targets a
+  # DIFFERENT complement node (Factor B, upstream of C5). Tests whether
+  # the agent can disambiguate proximal vs terminal complement.
+  target_protein: "CFB"
+  target_aliases: ["CFB", "complement factor B", "iptacopan", "Fabhalta", "LNP023"]
+  # All FDA-approved complement-pathway PNH targets:
+  valid_targets: ["CFB", "C5", "C3"]
+  modulation_type: "inhibitor"
+  key_citations:
+    - "iptacopan"
+    - "Fabhalta"
+    - "APPLY-PNH"
+  mechanism_class: "lof"
+  min_confidence: 0.70
+
+references:
+  - "Peffault de Latour R et al. Oral iptacopan monotherapy in PNH (APPLY-PNH). NEJM 2024"
+  - "FDA approval letter, NDA 218276, 2023-12-05"

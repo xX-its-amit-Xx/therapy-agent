@@ -1,0 +1,28 @@
+id: aprocitentan_htn
+name: "Resistant hypertension -> aprocitentan (dual endothelin receptor antagonist)"
+category: heldout_2024
+approval_date: "2024-03-19"
+fda_approval: "Tryvio (aprocitentan) -- dual ET-A / ET-B endothelin receptor antagonist for resistant hypertension"
+
+input:
+  gene: "EDN1"
+  mutation: "no causal germline mutation; elevated endothelin-1 (EDN1) tone contributes to vasoconstriction and aldosterone-driven sodium retention in resistant hypertension"
+  disease_phenotype: "true resistant hypertension persisting on 3+ antihypertensives including a diuretic; volume- and ET-1-driven vasoconstriction"
+
+expected_outputs:
+  # HARD: target is the endothelin RECEPTOR family, not the EDN1 ligand
+  # itself. Two receptors (EDNRA, EDNRB); aprocitentan is dual antagonist.
+  target_protein: "EDNRA"
+  target_aliases: ["EDNRA", "EDNRB", "endothelin receptor", "aprocitentan", "Tryvio", "ET-A", "ET-B", "macitentan", "bosentan"]
+  valid_targets: ["EDNRA", "EDNRB", "EDN1"]
+  modulation_type: "inhibitor"
+  key_citations:
+    - "aprocitentan"
+    - "Tryvio"
+    - "PRECISION"
+  mechanism_class: "gof"
+  min_confidence: 0.70
+
+references:
+  - "Schlaich MP et al. Dual endothelin antagonism with aprocitentan for resistant hypertension (PRECISION). Lancet 2022"
+  - "FDA approval letter, NDA 217686, 2024-03-19"

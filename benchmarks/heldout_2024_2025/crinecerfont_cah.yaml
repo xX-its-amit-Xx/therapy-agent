@@ -17,7 +17,10 @@ expected_outputs:
   # pituitary reduces ACTH -> reduces adrenal androgen excess without
   # requiring more glucocorticoid.
   target_protein: "CRHR1"
-  target_aliases: ["CRHR1", "CRF1", "CRF-1 receptor", "corticotropin-releasing hormone receptor 1", "crinecerfont", "Crenessity"]
+  # Includes "CRH receptor" as a colloquial alias -- the model often names
+  # the receptor by its ligand (CRH) rather than its HGNC symbol (CRHR1).
+  # Both are referring to the same protein.
+  target_aliases: ["CRHR1", "CRF1", "CRF-1 receptor", "CRH receptor", "corticotropin-releasing hormone receptor 1", "crinecerfont", "Crenessity"]
   # FDA-validated targets only. MC2R antagonists (e.g. atumelnant /
   # CRN04894 / Crinetics) are in Phase 2 / 3 for CAH but not yet
   # approved -- keeping them OUT of valid_targets so the score stays

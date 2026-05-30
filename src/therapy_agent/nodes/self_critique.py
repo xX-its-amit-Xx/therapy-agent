@@ -112,15 +112,21 @@ Be rigorous. Flag any confabulated citations or unlikely claims."""
         final_strategy = dict(strategy)
         final_strategy["confidence_score"] = revised_conf
 
-        # The critical fix v0.5 adds: when the critique decides the
-        # rationale points to a different gene than target_protein, write
-        # the corrected gene into BOTH `strategy.target_protein` (so the
-        # revise loop sees it) and the `final_strategy.target_protein` (so
-        # if we exit, the scored field reflects the corrected answer).
+        # v0.5 used to rewrite target_protein here based on the LLM critique's
+        # `corrected_target_protein` output. v0.7 disabled this because the
+        # critique LLM was systematically pulling the answer back toward the
+        # disease gene -- e.g. on Sotatercept, the deterministic
+        # field_rationale_align node had correctly set target=ACVR2B, but
+        # self_critique then "realigned" it back to BMPR2. Target rewriting
+        # is now exclusively done by `field_rationale_align`, which uses a
+        # deterministic check and is therefore not subject to LLM-prior
+        # collapse. Self_critique here just records confidence + notes.
         if not aligned and corrected:
-            old = final_strategy.get("target_protein", "")
-            final_strategy["target_protein"] = corrected
-            notes.append(f"REALIGNED target_protein: {old!r} -> {corrected!r} (matches rationale)")
+            notes.append(
+                f"LLM critique flagged misalignment to {corrected!r}; "
+                "deferring to deterministic field_rationale_align for any "
+                "actual target_protein rewrite (this note is informational)"
+            )
 
         if unsupported:
             notes += [f"UNSUPPORTED: {c}" for c in unsupported]
@@ -133,11 +139,9 @@ Be rigorous. Flag any confabulated citations or unlikely claims."""
         if alternatives:
             trace.append(f"Alternative targets: {', '.join(alternatives[:3])}")
 
-        # Mirror the realigned target into `strategy` too, so if should_revise
-        # routes us back to strategy_synthesis it starts from the corrected
-        # gene (the prompt's critique_ctx will also reflect it).
+        # Preserve `strategy.target_protein` exactly as field_rationale_align
+        # set it. Only update confidence + carry through final_strategy.
         revised_strategy = dict(strategy)
-        revised_strategy["target_protein"] = final_strategy["target_protein"]
         revised_strategy["confidence_score"] = revised_conf
 
         return {

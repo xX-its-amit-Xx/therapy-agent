@@ -1,0 +1,31 @@
+id: lebrikizumab_atopic_derm
+name: "Atopic dermatitis -> lebrikizumab (anti-IL-13)"
+category: heldout_2024
+approval_date: "2024-09-13"
+fda_approval: "Ebglyss (lebrikizumab) -- humanized IgG4 anti-IL-13"
+
+input:
+  gene: "IL13"
+  mutation: "no causal germline mutation; atopic dermatitis is a polygenic Th2-skewed disease where IL-13 drives epidermal barrier dysfunction, keratinocyte proliferation, and pruritus"
+  disease_phenotype: "moderate-to-severe atopic dermatitis with persistent itch, eczematous lesions, and Th2-driven inflammation"
+
+expected_outputs:
+  # EASY-ish: IL-13 is both the upstream effector and the named target.
+  target_protein: "IL13"
+  target_aliases: ["IL13", "IL-13", "interleukin-13", "lebrikizumab", "Ebglyss", "tralokinumab", "Adbry"]
+  # Multiple FDA-approved Th2-pathway atopic dermatitis biologics:
+  #   lebrikizumab / tralokinumab -> IL13
+  #   dupilumab                   -> IL4R (alpha chain shared with IL13)
+  #   nemolizumab                 -> IL31RA
+  valid_targets: ["IL13", "IL4R", "IL31RA"]
+  modulation_type: "inhibitor"
+  key_citations:
+    - "lebrikizumab"
+    - "Ebglyss"
+    - "ADvocate"
+  mechanism_class: "gof"
+  min_confidence: 0.80
+
+references:
+  - "Silverberg JI et al. Two Phase 3 Trials of Lebrikizumab for Moderate-to-Severe Atopic Dermatitis. NEJM 2023 (ADvocate1/2)"
+  - "FDA approval letter, BLA 761306, 2024-09-13"

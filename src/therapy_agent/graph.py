@@ -12,6 +12,7 @@ from therapy_agent.nodes.interactor_biology_lookup import interactor_biology_loo
 from therapy_agent.nodes.agentic_target_research import agentic_target_research_node
 from therapy_agent.nodes.strategy_synthesis import strategy_synthesis_node
 from therapy_agent.nodes.self_critique import self_critique_node
+from therapy_agent.nodes.field_rationale_align import field_rationale_align_node
 
 
 def should_revise(state: AgentState) -> str:
@@ -44,6 +45,7 @@ def build_graph():
     builder.add_node("agentic_target_research", agentic_target_research_node)
     builder.add_node("strategy_synthesis", strategy_synthesis_node)
     builder.add_node("self_critique", self_critique_node)
+    builder.add_node("field_rationale_align", field_rationale_align_node)
 
     builder.set_entry_point("parse_input")
     builder.add_edge("parse_input", "variant_lookup")
@@ -53,7 +55,14 @@ def build_graph():
     builder.add_edge("druggable_target_search", "interactor_biology_lookup")
     builder.add_edge("interactor_biology_lookup", "agentic_target_research")
     builder.add_edge("agentic_target_research", "strategy_synthesis")
-    builder.add_edge("strategy_synthesis", "self_critique")
+    # field_rationale_align runs BEFORE self_critique so it deterministically
+    # pins target_protein to whatever the rationale dominantly cites. This
+    # stops self_critique from then "realigning" the corrected target back to
+    # the disease gene (we observed self_critique rewriting ACVR2B -> BMPR2 on
+    # the Sotatercept case because the LLM's intuition pulls toward "disease
+    # gene is the canonical target").
+    builder.add_edge("strategy_synthesis", "field_rationale_align")
+    builder.add_edge("field_rationale_align", "self_critique")
     builder.add_conditional_edges(
         "self_critique",
         should_revise,

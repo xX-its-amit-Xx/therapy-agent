@@ -1,0 +1,34 @@
+id: capivasertib_breast
+name: "PIK3CA / AKT / PTEN-altered HR+ HER2- breast cancer -> capivasertib (pan-AKT inhibitor)"
+category: heldout_2024
+approval_date: "2023-11-16"
+fda_approval: "Truqap (capivasertib) -- pan-AKT (AKT1/2/3) ATP-competitive inhibitor"
+
+input:
+  gene: "PIK3CA"
+  mutation: "activating missense (e.g. p.E545K, p.H1047R) in the PI3K catalytic subunit alpha, causing constitutive PI3K/AKT/mTOR signaling"
+  disease_phenotype: "hormone-receptor-positive, HER2-negative, advanced/metastatic breast cancer with PIK3CA / AKT1 / PTEN alterations"
+
+expected_outputs:
+  # HARD: disease gene is PIK3CA (upstream) but capivasertib targets AKT
+  # (downstream effector). Inavolisib (alpelisib's successor) targets PIK3CA
+  # directly. Both FDA-approved.
+  target_protein: "AKT1"
+  target_aliases: ["AKT1", "AKT2", "AKT3", "AKT", "capivasertib", "Truqap"]
+  # FDA-approved nodes in this signalling chain for HR+/HER2- breast:
+  #   alpelisib (Piqray)   -> PIK3CA
+  #   inavolisib (Itovebi) -> PIK3CA
+  #   capivasertib (Truqap) -> AKT1/2/3
+  #   everolimus           -> mTOR (MTOR / MLST8 complex)
+  valid_targets: ["AKT1", "AKT2", "AKT3", "PIK3CA", "MTOR"]
+  modulation_type: "inhibitor"
+  key_citations:
+    - "capivasertib"
+    - "Truqap"
+    - "CAPItello"
+  mechanism_class: "gof"
+  min_confidence: 0.75
+
+references:
+  - "Turner NC et al. Capivasertib in HR-positive HER2-negative advanced breast cancer (CAPItello-291). NEJM 2023"
+  - "FDA approval letter, NDA 218197, 2023-11-16"

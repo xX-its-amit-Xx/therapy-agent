@@ -1,0 +1,33 @@
+id: donanemab_alzheimers
+name: "Early symptomatic Alzheimer's -> donanemab (anti-amyloid-beta plaque mAb)"
+category: heldout_2024
+approval_date: "2024-07-02"
+fda_approval: "Kisunla (donanemab) -- humanized IgG1 targeting N-truncated pyroglutamate-Abeta amyloid plaques"
+
+input:
+  gene: "APP"
+  mutation: "wild-type APP processing; amyloid-beta (Abeta42) plaque deposition driven by age-related proteostasis decline (no monogenic mutation -- the disease is sporadic in most patients, with rare familial AD via APP/PSEN1/PSEN2 mutations as model)"
+  disease_phenotype: "early symptomatic Alzheimer's disease (mild cognitive impairment or mild dementia stage) with amyloid plaque burden confirmed by PET or CSF"
+
+expected_outputs:
+  # HARD: target is the amyloid-beta peptide itself / its plaque deposits,
+  # cleared via immune-mediated phagocytosis. APP is the precursor gene
+  # but it's not directly drugged.
+  target_protein: "APP"
+  target_aliases: ["amyloid", "amyloid-beta", "Abeta", "Abeta42", "amyloid plaque", "donanemab", "Kisunla", "lecanemab", "Leqembi", "aducanumab"]
+  # Lecanemab (anti-Abeta protofibril) and donanemab (anti-plaque) are both
+  # FDA-approved; aducanumab was approved then withdrawn. All target the
+  # amyloid-beta peptide via the APP-derived processing chain.
+  valid_targets: ["APP", "BACE1", "PSEN1", "PSEN2"]
+  modulation_type: "antibody"
+  key_citations:
+    - "donanemab"
+    - "Kisunla"
+    - "lecanemab"
+    - "TRAILBLAZER"
+  mechanism_class: "misfolding"
+  min_confidence: 0.65
+
+references:
+  - "Sims JR et al. Donanemab in early symptomatic Alzheimer disease (TRAILBLAZER-ALZ 2). JAMA 2023"
+  - "FDA approval letter, BLA 761248, 2024-07-02"

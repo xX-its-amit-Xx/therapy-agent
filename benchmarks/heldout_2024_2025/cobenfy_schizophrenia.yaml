@@ -1,0 +1,32 @@
+id: cobenfy_schizophrenia
+name: "Schizophrenia -> Cobenfy (xanomeline/trospium, M1/M4 muscarinic agonist)"
+category: heldout_2024
+approval_date: "2024-09-26"
+fda_approval: "Cobenfy (xanomeline + trospium) -- first non-dopaminergic antipsychotic; M1/M4 muscarinic agonist"
+
+input:
+  gene: "CHRM4"
+  mutation: "no germline causal mutation; schizophrenia is polygenic with reduced muscarinic-cholinergic signaling and dysregulated mesolimbic dopamine"
+  disease_phenotype: "schizophrenia in adults; positive (psychosis), negative (avolition), and cognitive symptoms"
+
+expected_outputs:
+  # HARD: novel mechanism class. Disease is polygenic so no clear disease
+  # gene; the target is a muscarinic receptor pair (M1 + M4 = CHRM1 + CHRM4),
+  # which differs from the canonical D2 antagonism that defined prior
+  # antipsychotics. Tests whether the agent can identify a non-dopaminergic
+  # target for a disease historically defined by dopamine.
+  target_protein: "CHRM4"
+  target_aliases: ["CHRM4", "CHRM1", "M1", "M4", "muscarinic", "xanomeline", "Cobenfy", "KarXT"]
+  valid_targets: ["CHRM1", "CHRM4", "DRD2", "DRD3"]   # M1/M4 cholinergic OR D2/D3 dopaminergic
+  modulation_type: "activator"
+  key_citations:
+    - "xanomeline"
+    - "Cobenfy"
+    - "KarXT"
+    - "EMERGENT"
+  mechanism_class: "lof"
+  min_confidence: 0.60
+
+references:
+  - "Kaul I et al. Xanomeline-trospium for acute schizophrenia (EMERGENT-2). NEJM 2024"
+  - "FDA approval letter, NDA 217846, 2024-09-26"
