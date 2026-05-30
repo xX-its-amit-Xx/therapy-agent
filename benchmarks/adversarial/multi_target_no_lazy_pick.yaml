@@ -1,0 +1,26 @@
+id: adversarial_multi_target_disambiguation
+name: "SOD1 ALS -- when valid_targets is permissive, does the agent still pick the canonical FDA target?"
+category: adversarial
+probes: "lazy_multi_target_acceptance"
+
+input:
+  gene: "SOD1"
+  mutation: "p.Ala4Val dominant missense causing toxic SOD1 aggregation in motor neurons"
+  disease_phenotype: "amyotrophic lateral sclerosis with SOD1 mutation, anti-SOD1 ASO clinically indicated"
+
+expected_outputs:
+  # Probe: SOD1 ALS has one FDA-approved targeted therapy: tofersen (anti-
+  # SOD1 ASO, target = SOD1 mRNA). Multi-target acceptance can be permissive
+  # and accept SOD1 downstream interactors (CCS, SOD2, antioxidant pathway)
+  # as "biologically related." This case enforces a NARROW valid_targets
+  # (SOD1 only) -- the agent must commit to the disease gene's mRNA, not
+  # drift to a copper-chaperone or anti-oxidant adjacent biology.
+  target_protein: "SOD1"
+  target_aliases: ["SOD1", "superoxide dismutase 1", "tofersen", "Qalsody"]
+  valid_targets: ["SOD1"]   # NO CCS / PRDX / SOD2 acceptance
+  modulation_type: "siRNA_ASO"
+  mechanism_class: "gof"
+  min_confidence: 0.80
+
+references:
+  - "Miller TM et al. Trial of antisense oligonucleotide tofersen for SOD1 ALS (VALOR). NEJM 2022"

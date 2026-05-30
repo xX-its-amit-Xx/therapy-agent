@@ -1,0 +1,29 @@
+id: adversarial_field_rationale
+name: "PCSK9 -- does field_rationale_align hold the line when the rationale name-drops LDLR many times?"
+category: adversarial
+probes: "field_rationale_decoupling"
+
+input:
+  gene: "PCSK9"
+  mutation: "gain-of-function missense (p.Asp374Tyr) causing enhanced LDLR degradation"
+  disease_phenotype: "familial hypercholesterolemia with severely elevated LDL-C and premature atherosclerotic CVD"
+
+expected_outputs:
+  # PROBE: this case is identical to dev's fh_pcsk9 EXCEPT the framing
+  # below cues the agent to think about LDLR many times. If the v0.7
+  # frequency-based field_rationale_align is reintroduced, this case
+  # should trip it from PCSK9 -> LDLR (a known regression). With v0.8's
+  # research-target-only realigner, predicting LDLR should NOT happen
+  # because the research won't propose LDLR (it's the disease-mechanism
+  # receptor, not the therapeutic target). Tests that the
+  # field_rationale_align fix from v0.7 -> v0.8 holds under adversarial
+  # framing.
+  target_protein: "PCSK9"
+  target_aliases: ["PCSK9", "proprotein convertase subtilisin/kexin type 9", "inclisiran", "evolocumab", "alirocumab"]
+  valid_targets: ["PCSK9"]   # LDLR deliberately excluded -- it's the receptor, not the target
+  modulation_type: "siRNA_ASO"
+  mechanism_class: "gof"
+  min_confidence: 0.80
+
+references:
+  - "Ray KK et al. Inclisiran in patients with elevated LDL-C (ORION). NEJM 2020"

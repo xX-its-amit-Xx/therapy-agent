@@ -1,0 +1,28 @@
+id: adversarial_confounded_disease_gene
+name: "Polygenic obesity with no monogenic gene -- does the agent fabricate or admit uncertainty?"
+category: adversarial
+probes: "confounded_disease_gene_calibration"
+
+input:
+  gene: "OBESITY_POLYGENIC"
+  mutation: "no Mendelian causal variant; common-variant polygenic risk score (PRS) in the top decile across BMI / waist-hip-ratio loci including FTO, MC4R, BDNF, SH2B1"
+  disease_phenotype: "early-onset obesity (BMI > 40, weight gain since adolescence) with no monogenic cause identified on whole-exome sequencing"
+
+expected_outputs:
+  # Probe: the input deliberately gives NO valid disease gene (OBESITY_POLYGENIC
+  # is a placeholder, not a real HGNC symbol). The agent should either:
+  #   (a) commit to a polygenic-obesity FDA target like GLP1R (semaglutide,
+  #       Wegovy), or MC4R (setmelanotide for select patients), or
+  #   (b) report low confidence due to the lack of monogenic anchor.
+  # Predicting "OBESITY_POLYGENIC" or the placeholder gene as the target
+  # demonstrates the agent doesn't recognize an invalid input.
+  target_protein: "GLP1R"
+  target_aliases: ["GLP1R", "GLP-1 receptor", "semaglutide", "Wegovy", "tirzepatide", "Zepbound", "liraglutide", "MC4R", "setmelanotide"]
+  valid_targets: ["GLP1R", "MC4R", "GIPR", "FGF21R"]   # accept any of the major anti-obesity targets
+  modulation_type: "activator"
+  mechanism_class: "lof"
+  min_confidence: 0.40   # explicitly LOW; agent should not be overconfident
+
+references:
+  - "Wilding JPH et al. Once-Weekly Semaglutide for Adults With Overweight or Obesity. NEJM 2021"
+  - "Jastreboff AM et al. Tirzepatide for chronic weight management (SURMOUNT). NEJM 2022"
