@@ -590,6 +590,42 @@ Return ONLY valid JSON matching the strategy schema."""
                 n_samples=3,
             )
 
+            # disease_gene_default guard. Miss taxonomy showed that 100% of
+            # R1-Distill v0.8 val misses were disease-gene-default: Stage 2
+            # output the disease gene even when Stage 1 chose a non-disease-
+            # gene target_kind. Detect and force a re-pick.
+            non_disease_gene_kinds = {
+                "downstream_effector", "paralog", "upstream_enzyme",
+                "cargo_receptor", "downstream_receptor_agonist", "repressor",
+            }
+            picker_canonical = _canonical_target(picker.get("target_protein") or "")
+            if (pattern["target_kind"] in non_disease_gene_kinds
+                    and picker_canonical
+                    and picker_canonical == _canonical_target(gene)):
+                # Repick with explicit prohibition. The original prompt is
+                # extended with a constraint that the disease gene is OFF
+                # the candidate set.
+                guarded_msg = (
+                    target_picker_user_msg + "\n\n"
+                    f"HARD CONSTRAINT: the chosen pattern's target_kind is "
+                    f"'{pattern['target_kind']}', which by definition is NOT "
+                    f"the disease gene ({gene}). Your previous pick was the "
+                    f"disease gene itself, which violates the pattern. PICK "
+                    f"A DIFFERENT GENE from the candidate / interactor / "
+                    f"family lists above. Return JSON only."
+                )
+                picker = await _pick_target_self_consistent(
+                    client, _get_model(),
+                    user_msg=guarded_msg,
+                    n_samples=3,
+                )
+                picker.setdefault("rationale", "")
+                picker["rationale"] = (
+                    f"[disease_gene_default guard re-pick: pattern "
+                    f"target_kind={pattern['target_kind']} forbids disease "
+                    f"gene as target] " + picker["rationale"]
+                )
+
         # Modality / confidence are derived from the chosen target_kind in
         # a deterministic way -- avoids another LLM call and keeps the
         # modulation_type field clean for scoring. Confidence reflects
