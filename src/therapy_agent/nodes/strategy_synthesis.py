@@ -518,31 +518,52 @@ Return ONLY valid JSON matching the strategy schema."""
                 "disease_gene_exon_skip",
             }
             phen_l = (phenotype or "").lower()
+
+            # v0.9.3: mechanism-pattern consistency guard. Knocking down
+            # the mRNA of a LoF disease gene is contradictory -- it
+            # already lost function; further knockdown doesn't help. The
+            # Iptacopan/PNH miss showed Stage 1 picking pattern 5
+            # (disease_gene_mRNA) for a LoF PIGA case. Re-pick toward
+            # downstream-effector pattern when this happens.
+            if (pattern.get("target_kind") == "disease_gene_mRNA"
+                    and (mechanism or "").lower() == "lof"):
+                pattern = {
+                    "pattern_id": "1",
+                    "target_kind": "downstream_effector",
+                    "reasoning": (
+                        f"[v0.9.3 mechanism-pattern guard: mechanism=lof "
+                        f"contradicts disease_gene_mRNA knockdown (you "
+                        f"cannot knock down something that already lost "
+                        f"function). Forced to downstream_effector; the "
+                        f"target is the protein the disease gene's LoF "
+                        f"unbrakes/dysregulates, not the disease gene "
+                        f"itself.]"
+                    ),
+                }
+
             if (pattern.get("target_kind") in disease_gene_centric_kinds
                     and any(m in phen_l for m in feedback_axis_markers)):
-                # Re-prompt Stage 1 with a hard prior toward pattern 9.
-                feedback_hint = (
-                    "\n\nPHENOTYPE-PATTERN CONSISTENCY OVERRIDE: the disease "
-                    "phenotype contains explicit feedback-axis language "
-                    "(ACTH-driven, compensatory, gonadotropin excess, etc.). "
-                    "Disease-gene-centric patterns (chaperone, mRNA "
-                    "knockdown, exon skip) DO NOT address feedback-axis "
-                    "biology. Pick pattern 9 (feedback_axis_receptor) UNLESS "
-                    "the retrieved evidence specifically argues against it."
-                )
-                # We piggy-back the override on _select_pattern via the
-                # mechanism_reasoning field, which is concatenated into the
-                # user message of the pattern selector.
-                pattern = await _select_pattern(
-                    client, _get_model(),
-                    gene=gene, mutation=mutation, phenotype=phenotype,
-                    mechanism=mechanism,
-                    mechanism_reasoning=mechanism_reasoning + feedback_hint,
-                )
-                pattern.setdefault("reasoning", "")
-                pattern["reasoning"] = (
-                    "[feedback-axis override re-pick] " + pattern["reasoning"]
-                )
+                # v0.9.2: hard pattern override. We previously tried a
+                # gentle re-prompt of Stage 1 (v0.9.1) -- it didn't move
+                # R1-Distill 8B off the chaperone pattern on Crinecerfont
+                # despite explicit "ACTH-driven" markers. Replace the
+                # pattern directly. The retrieved-evidence escape hatch
+                # is preserved in Stage 2 (it can still pick a
+                # disease-gene answer with a strong rationale).
+                fired_marker = next(m for m in feedback_axis_markers
+                                     if m in phen_l)
+                pattern = {
+                    "pattern_id": "9",
+                    "target_kind": "feedback_axis_receptor",
+                    "reasoning": (
+                        f"[v0.9.2 feedback-axis hard override: phenotype "
+                        f"contains '{fired_marker}'; Stage 1 originally "
+                        f"chose {pattern.get('target_kind', '?')} but "
+                        f"feedback-axis biology takes precedence. The "
+                        f"target is an upstream signaling receptor, NOT "
+                        f"the disease gene.]"
+                    ),
+                }
 
         # Render the agentic-research history if the upstream node produced one.
         research_text = ""
