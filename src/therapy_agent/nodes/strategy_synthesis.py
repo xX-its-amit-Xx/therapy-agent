@@ -79,13 +79,18 @@ _PATTERN_SELECTOR_SYSTEM = """You are a translational drug-discovery scientist. 
   6. LOF hormone precursor with intact downstream receptor → agonize the receptor to bypass the missing ligand.
   7. Out-of-frame exon deletion or splice defect → splice-modulating ASO targeting an adjacent exon of the disease gene.
   8. Transcriptional repressor controlling a useful paralog → disrupt the repressor / its DNA element.
+  9. LOF of an enzyme in a NEGATIVE-FEEDBACK endocrine axis (loss of end-hormone removes inhibition of an upstream signaling cascade, causing toxic excess of an intermediate) → BLOCK the upstream signaling receptor or releasing hormone that now drives the compensatory excess. The disease gene is NOT the target; an upstream hypothalamic / pituitary / autocrine receptor IS. Example archetypes: CAH (CYP21A2 LOF → ACTH excess → adrenal androgen excess; block CRHR1), pituitary feedback loops in general.
 
 Return strict JSON:
 {
-  "pattern_id": "1" | "2" | "3" | "4a" | "4b" | "5" | "6" | "7" | "8",
-  "target_kind": "downstream_effector" | "paralog" | "upstream_enzyme" | "disease_gene_protein_chaperone" | "cargo_receptor" | "disease_gene_mRNA" | "downstream_receptor_agonist" | "disease_gene_exon_skip" | "repressor",
+  "pattern_id": "1" | "2" | "3" | "4a" | "4b" | "5" | "6" | "7" | "8" | "9",
+  "target_kind": "downstream_effector" | "paralog" | "upstream_enzyme" | "disease_gene_protein_chaperone" | "cargo_receptor" | "disease_gene_mRNA" | "downstream_receptor_agonist" | "disease_gene_exon_skip" | "repressor" | "feedback_axis_receptor",
   "reasoning": "<one sentence>"
 }
+
+NEGATIVE EXAMPLES (do NOT pick chaperone/4a when the real mechanism is feedback):
+  - Disease gene CYP21A2 + ACTH-driven androgen excess phenotype: chaperone is WRONG; pattern 9 (feedback-axis blockade, target CRHR1) is right.
+  - Disease gene with phenotype dominated by COMPENSATORY upstream signaling (e.g. ACTH excess, gonadotropin excess) → pattern 9 not 4a.
 """
 
 
@@ -495,6 +500,50 @@ Return ONLY valid JSON matching the strategy schema."""
                 mechanism=mechanism, mechanism_reasoning=mechanism_reasoning,
             )
 
+            # Phenotype-pattern consistency guard (v0.9.1).
+            # If the phenotype contains explicit feedback-axis language but
+            # Stage 1 picked a disease-gene-centric pattern (chaperone or
+            # mRNA knockdown), force a re-pick with the feedback option
+            # made explicit. This catches the Crinecerfont/CAH archetype
+            # where Stage 1 picks pattern 4a despite the phenotype
+            # describing CRH/ACTH-driven excess.
+            feedback_axis_markers = (
+                "acth-driven", "acth driven", "crh and", "crh-driven",
+                "compensatory", "feedback drive", "gonadotropin excess",
+                "tsh-driven", "tsh driven", "negative feedback",
+                "hypothalamic-pituitary",
+            )
+            disease_gene_centric_kinds = {
+                "disease_gene_protein_chaperone", "disease_gene_mRNA",
+                "disease_gene_exon_skip",
+            }
+            phen_l = (phenotype or "").lower()
+            if (pattern.get("target_kind") in disease_gene_centric_kinds
+                    and any(m in phen_l for m in feedback_axis_markers)):
+                # Re-prompt Stage 1 with a hard prior toward pattern 9.
+                feedback_hint = (
+                    "\n\nPHENOTYPE-PATTERN CONSISTENCY OVERRIDE: the disease "
+                    "phenotype contains explicit feedback-axis language "
+                    "(ACTH-driven, compensatory, gonadotropin excess, etc.). "
+                    "Disease-gene-centric patterns (chaperone, mRNA "
+                    "knockdown, exon skip) DO NOT address feedback-axis "
+                    "biology. Pick pattern 9 (feedback_axis_receptor) UNLESS "
+                    "the retrieved evidence specifically argues against it."
+                )
+                # We piggy-back the override on _select_pattern via the
+                # mechanism_reasoning field, which is concatenated into the
+                # user message of the pattern selector.
+                pattern = await _select_pattern(
+                    client, _get_model(),
+                    gene=gene, mutation=mutation, phenotype=phenotype,
+                    mechanism=mechanism,
+                    mechanism_reasoning=mechanism_reasoning + feedback_hint,
+                )
+                pattern.setdefault("reasoning", "")
+                pattern["reasoning"] = (
+                    "[feedback-axis override re-pick] " + pattern["reasoning"]
+                )
+
         # Render the agentic-research history if the upstream node produced one.
         research_text = ""
         if research_history:
@@ -597,6 +646,7 @@ Return ONLY valid JSON matching the strategy schema."""
             non_disease_gene_kinds = {
                 "downstream_effector", "paralog", "upstream_enzyme",
                 "cargo_receptor", "downstream_receptor_agonist", "repressor",
+                "feedback_axis_receptor",
             }
             picker_canonical = _canonical_target(picker.get("target_protein") or "")
             if (pattern["target_kind"] in non_disease_gene_kinds
