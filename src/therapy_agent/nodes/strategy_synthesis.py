@@ -511,32 +511,84 @@ Return ONLY valid JSON matching the strategy schema."""
                     f"({research_proposed_rationale[:120]})"
                 )
 
-        target_picker_user_msg = (
-            f"Disease gene: {gene}\n"
-            f"Mutation: {mutation}\n"
-            f"Disease phenotype: {phenotype}\n"
-            f"Mechanism: {mechanism}\n\n"
-            f"Pattern chosen: {pattern['pattern_id']} "
-            f"(target_kind = {pattern['target_kind']})\n"
-            f"Pattern reasoning: {pattern.get('reasoning', '')}\n\n"
-            f"Pathway role of disease gene: {pathway_context_oneliner or '(none)'}\n\n"
-            f"Pathway interactors (Reactome): {pathway_text}\n\n"
-            f"g2p-rag biology for the disease gene:\n{g2p_text}\n\n"
-            f"g2p-rag biology for top candidate interactors:\n{interactor_text}\n\n"
-            f"Druggability of candidates: {targets_text}\n\n"
-            f"{research_text}\n"
-            f"{critique_ctx}\n\n"
-            "Pick the SPECIFIC target gene that fits the chosen pattern's target_kind.\n"
-            "Weight the agentic-research log heavily -- the LLM that produced it"
-            " had access to follow-up retrieval the initial pipeline didn't.\n"
-            "Return JSON only."
-        )
+        # If agentic_target_research produced a final proposal, lead with it
+        # in the prompt and instruct the picker to default to it. This stops
+        # Stage 2 from quietly overriding a good research conclusion with a
+        # less-informed re-pick (we observed e.g. research -> ACVR2B then
+        # Stage 2 -> BMPR2 disease-gene fallback on the Sotatercept case).
+        if research_proposed_target:
+            target_picker_user_msg = (
+                f"Disease gene: {gene}\n"
+                f"Mutation: {mutation}\n"
+                f"Disease phenotype: {phenotype}\n"
+                f"Mechanism: {mechanism}\n\n"
+                f"Pattern chosen: {pattern['pattern_id']} "
+                f"(target_kind = {pattern['target_kind']})\n\n"
+                f"=== AGENTIC RESEARCH PROPOSAL ===\n"
+                f"Proposed target: {research_proposed_target}\n"
+                f"Proposal rationale: {research_proposed_rationale[:240]}\n"
+                f"Research log (the LLM's tool calls):\n{research_text}\n\n"
+                f"=== ADDITIONAL CONTEXT (do not weight above the proposal unless\n"
+                f"the proposal clearly violates the pattern's target_kind) ===\n"
+                f"Pathway interactors: {pathway_text}\n"
+                f"g2p-rag disease-gene biology:\n{g2p_text}\n"
+                f"g2p-rag candidate biology:\n{interactor_text}\n"
+                f"Druggability: {targets_text}\n"
+                f"{critique_ctx}\n\n"
+                "DEFAULT to the agentic research's proposed target. Only override\n"
+                "if it directly contradicts the pattern's target_kind\n"
+                f"({pattern['target_kind']}). If you accept the proposal,\n"
+                "copy its target into target_protein verbatim.\n"
+                "Return JSON only."
+            )
+        else:
+            target_picker_user_msg = (
+                f"Disease gene: {gene}\n"
+                f"Mutation: {mutation}\n"
+                f"Disease phenotype: {phenotype}\n"
+                f"Mechanism: {mechanism}\n\n"
+                f"Pattern chosen: {pattern['pattern_id']} "
+                f"(target_kind = {pattern['target_kind']})\n"
+                f"Pattern reasoning: {pattern.get('reasoning', '')}\n\n"
+                f"Pathway role of disease gene: {pathway_context_oneliner or '(none)'}\n\n"
+                f"Pathway interactors (Reactome): {pathway_text}\n\n"
+                f"g2p-rag biology for the disease gene:\n{g2p_text}\n\n"
+                f"g2p-rag biology for top candidate interactors:\n{interactor_text}\n\n"
+                f"Druggability of candidates: {targets_text}\n\n"
+                f"{critique_ctx}\n\n"
+                "Pick the SPECIFIC target gene that fits the chosen pattern's "
+                "target_kind. Return JSON only."
+            )
 
-        picker = await _pick_target_self_consistent(
-            client, _get_model(),
-            user_msg=target_picker_user_msg,
-            n_samples=3,
-        )
+        # If the agentic research proposed a target that DIFFERS from the
+        # disease gene, trust the research and skip the Stage 2 picker.
+        # We observed Stage 2 consistently override the research's
+        # correctly-reasoned answer with the disease gene (e.g. research
+        # proposed ACVR2B; Stage 2 picker output rationale mentioning
+        # ACVR2B but wrote BMPR2 into target_protein 3/3 times). When the
+        # research has done multi-step retrieval and arrived at a
+        # non-disease-gene target, we should defer to it.
+        rp = research_proposed_target.strip()
+        rp_canonical = _canonical_target(rp)
+        gene_canonical = _canonical_target(gene)
+        bypass_stage2 = bool(rp_canonical and rp_canonical != gene_canonical)
+
+        if bypass_stage2:
+            picker = {
+                "target_protein": rp,
+                "rationale": research_proposed_rationale or
+                             f"Deferred to agentic research's proposal "
+                             f"({rp}); see research_history for tool calls.",
+                "votes": {rp_canonical: 1},
+                "samples": [{"target_protein": rp,
+                             "rationale": research_proposed_rationale}],
+            }
+        else:
+            picker = await _pick_target_self_consistent(
+                client, _get_model(),
+                user_msg=target_picker_user_msg,
+                n_samples=3,
+            )
 
         # Modality / confidence are derived from the chosen target_kind in
         # a deterministic way -- avoids another LLM call and keeps the

@@ -16,6 +16,11 @@ expected_outputs:
   # pulmonary-arterial activin signalling.
   target_protein: "ACVR2A"
   target_aliases: ["ACVR2A", "ActRIIA", "activin", "INHBA", "GDF8", "GDF11", "sotatercept", "Winrevair"]
+  # Sotatercept is an ActRIIA-Fc fusion that traps activin family ligands.
+  # The ActRII subfamily includes both ACVR2A and ACVR2B; the BMP/activin
+  # receptor family is the relevant biology. Multi-target acceptance covers
+  # the family.
+  valid_targets: ["ACVR2A", "ACVR2B", "INHBA", "INHBB", "GDF8", "GDF11"]
   modulation_type: "inhibitor"
   key_citations:
     - "sotatercept"

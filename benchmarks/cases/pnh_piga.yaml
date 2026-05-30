@@ -13,6 +13,12 @@ expected_outputs:
   # complement regulators (CD55, CD59).
   target_protein: "C5"
   target_aliases: ["C5", "eculizumab", "Soliris", "ravulizumab", "Ultomiris", "complement component 5"]
+  # PNH has three FDA-approved complement inhibitors hitting different
+  # nodes; any is defensible:
+  #   eculizumab / ravulizumab (anti-C5)
+  #   iptacopan (Fabhalta, 2023) -> CFB (complement factor B)
+  #   pegcetacoplan (Empaveli)   -> C3
+  valid_targets: ["C5", "CFB", "C3"]
   modulation_type: "inhibitor"
   key_citations:
     - "eculizumab"

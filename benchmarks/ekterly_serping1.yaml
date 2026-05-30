@@ -12,6 +12,13 @@ input:
 expected_outputs:
   target_protein: "KLKB1"         # plasma kallikrein
   target_aliases: ["plasma kallikrein", "KLKB1", "kallikrein B1"]
+  # HAE has multiple FDA-approved drugs against different contact-activation
+  # cascade members; any of these is a defensible answer in a blinded eval:
+  #   sebetralstat (Ekterly), berotralstat (Orladeyo), lanadelumab (Takhzyro) -> KLKB1
+  #   garadacimab (Andembry)                                                  -> F12 (factor XIIa)
+  #   icatibant (Firazyr)                                                     -> BDKRB2 (bradykinin B2R)
+  #   C1-INH replacement (Berinert/Cinryze/Haegarda)                          -> SERPING1 itself
+  valid_targets: ["KLKB1", "F12", "BDKRB2"]
   modulation_type: "inhibitor"
   key_citations:
     - "sebetralstat"

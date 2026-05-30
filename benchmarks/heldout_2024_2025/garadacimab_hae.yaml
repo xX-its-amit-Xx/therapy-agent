@@ -18,6 +18,10 @@ expected_outputs:
   # already covers KLKB1, this case covers the F12 sibling target.
   target_protein: "F12"
   target_aliases: ["F12", "FXII", "Factor XII", "Factor XIIa", "garadacimab", "Andembry", "CSL312"]
+  # FDA-approved cascade-blocking targets (excludes SERPING1 itself, which
+  # is the disease gene -- C1-INH replacement restores the protein, it
+  # doesn't antagonize a target).
+  valid_targets: ["F12", "KLKB1", "BDKRB2"]
   modulation_type: "inhibitor"
   key_citations:
     - "garadacimab"

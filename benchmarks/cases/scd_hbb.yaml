@@ -10,6 +10,13 @@ input:
 expected_outputs:
   target_protein: "HBB"
   target_aliases: ["hemoglobin S", "HbS", "voxelotor", "HBB polymerization"]
+  # SCD has multiple FDA-approved drugs against different molecular targets;
+  # any of these is a defensible answer in a blinded evaluation:
+  #   voxelotor (Oxbryta)     -> HBB polymerization inhibitor
+  #   exa-cel (Casgevy)       -> BCL11A erythroid enhancer (HBF induction)
+  #   hydroxyurea             -> HBG1/HBG2 (HBF induction, indirect)
+  #   crizanlizumab (Adakveo) -> SELP (P-selectin)
+  valid_targets: ["HBB", "BCL11A", "HBG1", "HBG2", "SELP"]
   modulation_type: "inhibitor"
   key_citations:
     - "voxelotor"

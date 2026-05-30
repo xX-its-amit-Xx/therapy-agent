@@ -18,6 +18,11 @@ expected_outputs:
   # requiring more glucocorticoid.
   target_protein: "CRHR1"
   target_aliases: ["CRHR1", "CRF1", "CRF-1 receptor", "corticotropin-releasing hormone receptor 1", "crinecerfont", "Crenessity"]
+  # FDA-validated targets only. MC2R antagonists (e.g. atumelnant /
+  # CRN04894 / Crinetics) are in Phase 2 / 3 for CAH but not yet
+  # approved -- keeping them OUT of valid_targets so the score stays
+  # strict to the original "FDA-approved" semantics.
+  valid_targets: ["CRHR1"]
   modulation_type: "inhibitor"
   key_citations:
     - "crinecerfont"

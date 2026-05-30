@@ -12,6 +12,9 @@ input:
 expected_outputs:
   target_protein: "IDH1"
   target_aliases: ["IDH1", "IDH2", "mutant IDH", "vorasidenib", "Voranigo", "isocitrate dehydrogenase"]
+  # Vorasidenib is a dual IDH1/IDH2 inhibitor; ivosidenib (Tibsovo) covers
+  # mutant IDH1 alone, enasidenib (Idhifa) covers mutant IDH2 alone.
+  valid_targets: ["IDH1", "IDH2"]
   modulation_type: "inhibitor"
   key_citations:
     - "vorasidenib"
