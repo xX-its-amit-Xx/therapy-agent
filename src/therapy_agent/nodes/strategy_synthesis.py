@@ -541,15 +541,22 @@ Return ONLY valid JSON matching the strategy schema."""
                     ),
                 }
 
-            if (pattern.get("target_kind") in disease_gene_centric_kinds
-                    and any(m in phen_l for m in feedback_axis_markers)):
-                # v0.9.2: hard pattern override. We previously tried a
-                # gentle re-prompt of Stage 1 (v0.9.1) -- it didn't move
-                # R1-Distill 8B off the chaperone pattern on Crinecerfont
-                # despite explicit "ACTH-driven" markers. Replace the
-                # pattern directly. The retrieved-evidence escape hatch
-                # is preserved in Stage 2 (it can still pick a
-                # disease-gene answer with a strong rationale).
+            # v0.9.2 hard override fires whenever a feedback-axis marker
+            # is in the phenotype, REGARDLESS of Stage 1's pick. This is
+            # the right semantics: feedback-axis biology should not be
+            # treated as a chaperone / mRNA / generic case. v0.9.2 used
+            # to only fire when Stage 1 picked a disease-gene-centric
+            # pattern, but R1-Distill 8B was returning empty/malformed
+            # JSON from Stage 1 on Crinecerfont, which bypassed the gate.
+            # The unconditional trigger is safer; the only "escape" is
+            # a strong agentic-research target (handled in Stage 2).
+            non_feedback_kinds = {
+                "downstream_effector",  # already non-disease-gene
+                "downstream_receptor_agonist",  # already non-disease-gene
+                "upstream_enzyme",  # already non-disease-gene
+            }
+            if (any(m in phen_l for m in feedback_axis_markers)
+                    and pattern.get("target_kind") not in non_feedback_kinds):
                 fired_marker = next(m for m in feedback_axis_markers
                                      if m in phen_l)
                 pattern = {
@@ -558,8 +565,8 @@ Return ONLY valid JSON matching the strategy schema."""
                     "reasoning": (
                         f"[v0.9.2 feedback-axis hard override: phenotype "
                         f"contains '{fired_marker}'; Stage 1 originally "
-                        f"chose {pattern.get('target_kind', '?')} but "
-                        f"feedback-axis biology takes precedence. The "
+                        f"chose {pattern.get('target_kind', '?') or 'empty'} "
+                        f"but feedback-axis biology takes precedence. The "
                         f"target is an upstream signaling receptor, NOT "
                         f"the disease gene.]"
                     ),
