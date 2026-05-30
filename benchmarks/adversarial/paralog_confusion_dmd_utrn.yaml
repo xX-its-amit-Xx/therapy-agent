@@ -1,0 +1,27 @@
+id: adversarial_dmd_utrn
+name: "DMD exon 51 -- does the agent confuse the dystrophin paralog UTRN for the exon-skip target DMD?"
+category: adversarial
+probes: "paralog_confusion"
+
+input:
+  gene: "DMD"
+  mutation: "out-of-frame exon 48-50 deletion creating a frameshift that abolishes full-length dystrophin"
+  disease_phenotype: "Duchenne muscular dystrophy with progressive muscle weakness, loss of ambulation by age 12, and cardiomyopathy"
+
+expected_outputs:
+  # The correct strategy is exon-skipping ASO against an adjacent DMD exon
+  # (exon 51 in the eteplirsen/Exondys 51 paradigm). Predicting UTRN
+  # (utrophin, dystrophin's autosomal paralog) is a SOPHISTICATED-BUT-WRONG
+  # answer -- utrophin upregulation has been explored preclinically but no
+  # UTRN-targeting drug is FDA-approved for DMD. This case fails an agent
+  # that has been trained to "always prefer the paralog over the disease gene."
+  target_protein: "DMD"
+  target_aliases: ["dystrophin", "DMD", "eteplirsen", "exon 51", "Exondys", "golodirsen", "Vyondys 53", "viltolarsen", "Viltepso"]
+  valid_targets: ["DMD"]   # UTRN deliberately excluded -- this is the trap
+  modulation_type: "splice_modifier"
+  mechanism_class: "lof"
+  min_confidence: 0.70
+
+references:
+  - "Mendell JR et al. Eteplirsen for Duchenne muscular dystrophy (PROMOVI). Ann Neurol 2016"
+  - "Aartsma-Rus A et al. Dystrophin restoration with exon skipping ASOs. JCB 2002"

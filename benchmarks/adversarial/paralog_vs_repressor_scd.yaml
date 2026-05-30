@@ -1,0 +1,24 @@
+id: adversarial_scd_bcl11a
+name: "SCD with hydroxyurea history -- pick HBG1/HBG2 paralog reactivation, not HBB stabilization"
+category: adversarial
+probes: "paralog_reactivation_vs_disease_gene"
+
+input:
+  gene: "HBB"
+  mutation: "homozygous HBB c.20A>T (HbSS)"
+  disease_phenotype: "sickle cell disease with HIGH FETAL HEMOGLOBIN BASELINE (~15-20%) and good response to hydroxyurea; the patient's clinical question is whether to escalate to a more durable HbF-induction strategy via gene therapy rather than continue with HBB-stabilizer chronic dosing"
+
+expected_outputs:
+  # The probe: framing tilts toward HbF induction (Casgevy / exa-cel
+  # targets the BCL11A erythroid enhancer; hydroxyurea works via the same
+  # axis). An agent that defaults to HBB-stabilization (voxelotor) on any
+  # SCD case will miss the framing cue.
+  target_protein: "BCL11A"
+  target_aliases: ["BCL11A", "BCL11A erythroid enhancer", "exa-cel", "Casgevy", "HBG1", "HBG2", "fetal hemoglobin"]
+  valid_targets: ["BCL11A", "HBG1", "HBG2"]   # HBB excluded for this framing
+  modulation_type: "gene_therapy"
+  mechanism_class: "gof"
+  min_confidence: 0.55
+
+references:
+  - "Frangoul H et al. Exagamglogene autotemcel in SCD and TDT. NEJM 2021"

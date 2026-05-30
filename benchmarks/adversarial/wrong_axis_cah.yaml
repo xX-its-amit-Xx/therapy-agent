@@ -1,0 +1,26 @@
+id: adversarial_cah_simple_virilizing
+name: "Non-classic CAH with mild hyperandrogenism -- pick CRHR1, not glucocorticoid replacement"
+category: adversarial
+probes: "endocrine_axis_specificity"
+
+input:
+  gene: "CYP21A2"
+  mutation: "compound heterozygous mild variants (e.g. p.V281L / p.P30L) with PARTIAL 21-hydroxylase activity"
+  disease_phenotype: "non-classic / simple-virilizing congenital adrenal hyperplasia in an ADULT WITH FERTILITY GOALS -- patient has only mild cortisol deficiency but troubling hyperandrogenism (hirsutism, oligomenorrhea); standard glucocorticoid suppression at supra-physiologic doses is the existing standard of care but is being avoided due to its long-term metabolic side effects"
+
+expected_outputs:
+  # Crinecerfont (CRHR1 antagonist) is the FDA-approved non-glucocorticoid
+  # option that specifically reduces ACTH-driven adrenal androgen excess
+  # WITHOUT requiring cortisol replacement. An agent that defaults to
+  # "give more cortisol" (a real but not FDA-approved-as-NME-2024 standard
+  # of care) for any CAH case misses the cue that the framing wants the
+  # non-glucocorticoid alternative.
+  target_protein: "CRHR1"
+  target_aliases: ["CRHR1", "CRH receptor", "CRF1", "crinecerfont", "Crenessity"]
+  valid_targets: ["CRHR1"]   # NR3C1 (glucocorticoid receptor) deliberately excluded
+  modulation_type: "inhibitor"
+  mechanism_class: "lof"
+  min_confidence: 0.55
+
+references:
+  - "Auchus RJ et al. Crinecerfont in adult CAH (CAHtalyst). NEJM 2024"

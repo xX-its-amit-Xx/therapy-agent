@@ -1,0 +1,27 @@
+id: adversarial_hae_acute
+name: "HAE acute-attack treatment -- pick the bradykinin RECEPTOR antagonist, not a cascade protease inhibitor"
+category: adversarial
+probes: "cascade_branch_choice"
+
+input:
+  gene: "SERPING1"
+  mutation: "frameshift causing C1-INH haploinsufficiency"
+  disease_phenotype: "hereditary angioedema, ACUTE ATTACK treatment (not prophylaxis); patient currently presenting with an active laryngeal swelling that requires rapid resolution within minutes"
+
+expected_outputs:
+  # For acute HAE attack, the FDA-approved fast-onset drug is icatibant
+  # (Firazyr), a BDKRB2 antagonist -- because by the time the attack is
+  # underway, blocking the upstream cascade (KLKB1, F12) is too slow:
+  # bradykinin has already been generated. Prophylactic prevention can
+  # target KLKB1/F12; acute resolution requires blocking the bradykinin
+  # receptor itself. An agent that always picks KLKB1 for "HAE" gets this
+  # subtlety wrong.
+  target_protein: "BDKRB2"
+  target_aliases: ["BDKRB2", "bradykinin B2 receptor", "icatibant", "Firazyr"]
+  valid_targets: ["BDKRB2"]   # KLKB1/F12 deliberately excluded -- too slow for acute
+  modulation_type: "inhibitor"
+  mechanism_class: "lof"
+  min_confidence: 0.65
+
+references:
+  - "Cicardi M et al. Icatibant in HAE attacks (FAST-3). NEJM 2010"
