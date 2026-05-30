@@ -28,6 +28,7 @@ from therapy_agent.config import get_model
 from therapy_agent.llm import get_backend
 from therapy_agent.state import AgentState
 from therapy_agent.tools.g2p_query import g2p_query as _uniprot_g2p
+from therapy_agent.tools.pathway_neighbors import pathway_neighbors as _pathway_neighbors
 from therapy_agent.tools.reactome_query import GENE_PATHWAY_FALLBACK
 
 
@@ -183,8 +184,13 @@ propose a final target.
 
 Available tools (each takes ONE argument):
 
-  - expand_pathway(gene): list pathway interactors of the gene.
+  - expand_pathway(gene): list curated pathway interactors of the gene.
     Use for: finding upstream regulators, downstream effectors, paralogs.
+  - pathway_neighbors(gene): live Reactome lookup -- returns the gene
+    symbols that share Reactome pathways with the given gene, sorted by
+    frequency across the gene's pathways. Use when expand_pathway didn't
+    return enough candidates, or when you want raw biology rather than
+    curated entries.
   - query_biology(gene): UniProt FUNCTION / PATHWAY / SUBUNIT / PTM for a
     gene. Use to verify a candidate's mechanism / role.
   - find_signaling_family(gene): return the gene's paralog / receptor /
@@ -212,7 +218,7 @@ KEY HEURISTICS:
 
 Always respond with strict JSON, NO markdown fences:
 {
-  "action": "expand_pathway" | "query_biology" | "find_signaling_family" | "find_hormonal_axis" | "propose_target",
+  "action": "expand_pathway" | "pathway_neighbors" | "query_biology" | "find_signaling_family" | "find_hormonal_axis" | "propose_target",
   "argument": "<gene symbol or phenotype string>",
   "reasoning": "<one short sentence>"
 }
@@ -305,6 +311,8 @@ async def agentic_target_research_node(state: AgentState) -> dict:
         # Dispatch tool calls.
         if action == "expand_pathway":
             result = await _expand_pathway(argument)
+        elif action == "pathway_neighbors":
+            result = await _pathway_neighbors(argument)
         elif action == "query_biology":
             result = await _query_biology(argument)
         elif action == "find_signaling_family":
