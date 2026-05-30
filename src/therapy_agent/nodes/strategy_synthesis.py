@@ -300,6 +300,9 @@ async def strategy_synthesis_node(state: AgentState) -> dict:
     candidate_targets = state.get("candidate_targets") or []
     g2p_data = state.get("g2p_data") or {}
     interactor_g2p = state.get("interactor_g2p_data") or {}
+    research_history = state.get("research_history") or []
+    research_proposed_target = (state.get("research_proposed_target") or "").strip()
+    research_proposed_rationale = (state.get("research_proposed_rationale") or "").strip()
     phenotype = state["disease_phenotype"]
     mutation = state["mutation"]
     retry = state.get("retry_count", 0)
@@ -492,6 +495,22 @@ Return ONLY valid JSON matching the strategy schema."""
                 mechanism=mechanism, mechanism_reasoning=mechanism_reasoning,
             )
 
+        # Render the agentic-research history if the upstream node produced one.
+        research_text = ""
+        if research_history:
+            lines = []
+            for h in research_history[:6]:
+                lines.append(
+                    f"- {h.get('action', '?')}({h.get('argument', '')!r}) "
+                    f"-> {(h.get('result') or '')[:240]}"
+                )
+            research_text = "Agentic-research log (the LLM's own follow-up retrieval):\n" + "\n".join(lines)
+            if research_proposed_target:
+                research_text += (
+                    f"\nAgentic-research final proposal: {research_proposed_target} "
+                    f"({research_proposed_rationale[:120]})"
+                )
+
         target_picker_user_msg = (
             f"Disease gene: {gene}\n"
             f"Mutation: {mutation}\n"
@@ -504,9 +523,12 @@ Return ONLY valid JSON matching the strategy schema."""
             f"Pathway interactors (Reactome): {pathway_text}\n\n"
             f"g2p-rag biology for the disease gene:\n{g2p_text}\n\n"
             f"g2p-rag biology for top candidate interactors:\n{interactor_text}\n\n"
-            f"Druggability of candidates: {targets_text}\n"
+            f"Druggability of candidates: {targets_text}\n\n"
+            f"{research_text}\n"
             f"{critique_ctx}\n\n"
             "Pick the SPECIFIC target gene that fits the chosen pattern's target_kind.\n"
+            "Weight the agentic-research log heavily -- the LLM that produced it"
+            " had access to follow-up retrieval the initial pipeline didn't.\n"
             "Return JSON only."
         )
 
