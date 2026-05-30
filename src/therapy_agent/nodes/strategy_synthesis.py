@@ -138,6 +138,7 @@ Rules:
 - For target_kind="disease_gene_exon_skip": target_protein MUST be the disease gene (e.g. "DMD").
 - For target_kind="disease_gene_protein_chaperone": target_protein MUST be the disease gene.
 - For target_kind="downstream_effector" / "upstream_enzyme" / "cargo_receptor" / "downstream_receptor_agonist" / "paralog" / "repressor": target_protein is a DIFFERENT gene. Pick from the candidates whose biology matches that role.
+- For target_kind="feedback_axis_receptor": target_protein is the UPSTREAM hypothalamic / pituitary / autocrine SIGNALING receptor that drives the compensatory excess -- specifically, the RELEASING HORMONE receptor (e.g. CRHR1 / CRHR2 for the HPA axis when ACTH is the toxic intermediate, GnRHR for hypogonadism-axis feedback, TRHR for thyroid-axis feedback). NOT the end-hormone's own receptor (e.g. NOT NR3C1 / glucocorticoid receptor when cortisol is deficient -- that worsens the deficiency). Look in the candidate / interactor / family list for a "...receptor" upstream of the disease gene's enzymatic product.
 
 Do not invent drug names. Do not name any FDA-approved drug.
 """
