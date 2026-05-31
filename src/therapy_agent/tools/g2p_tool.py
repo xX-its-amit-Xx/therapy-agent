@@ -13,7 +13,7 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING
 
-from therapy_agent.config import G2P_RETRIEVAL_K
+from therapy_agent.config import G2P_RETRIEVAL_K, get_g2p_index_dir
 
 if TYPE_CHECKING:
     pass
@@ -26,29 +26,39 @@ _retriever_lock = asyncio.Lock()
 
 
 def _get_retriever():
-    """Return the module-level G2PRetrieverLangChain, initializing it if needed.
+    """Return the module-level G2PRetriever, initializing it if needed.
 
-    Raises ImportError if g2p-rag is not installed (caller should handle).
+    Uses g2p-rag's native API directly (not the LangChain adapter) so we can
+    pass a per-call gene_filter -- disease-gene queries should return
+    chunks for THAT gene, not a similarity-ranked mix across the index.
+
+    Raises ImportError if g2p-rag isn't installed; the caller in
+    g2p_retrieve() catches that and falls back to the UniProt-direct path.
     """
     global _retriever
     if _retriever is None:
-        from g2p_rag import G2PRetrieverLangChain  # type: ignore[import]
-        logger.info("Initializing G2PRetrieverLangChain (k=%d)…", G2P_RETRIEVAL_K)
-        _retriever = G2PRetrieverLangChain(k=G2P_RETRIEVAL_K)
-        logger.info("G2PRetrieverLangChain ready.")
+        from g2p_rag import G2PRetriever  # type: ignore[import]
+        persist_dir = get_g2p_index_dir()
+        logger.info("Initializing G2PRetriever(persist_dir=%r) k=%d",
+                     persist_dir, G2P_RETRIEVAL_K)
+        _retriever = G2PRetriever(persist_dir=persist_dir)
+        logger.info("g2p-rag retriever ready.")
     return _retriever
 
 
-def _chunk_to_dict(doc) -> dict:
-    """Serialize a LangChain Document to a plain dict for state storage."""
+def _chunk_to_dict(chunk) -> dict:
+    """Serialize a g2p_rag RetrievedChunk to a plain dict for state storage."""
     return {
-        "content": doc.page_content,
-        "source": doc.metadata.get("source", ""),
-        "doi": doc.metadata.get("doi", ""),
-        "pmid": doc.metadata.get("pmid", ""),
-        "title": doc.metadata.get("title", ""),
-        "gene": doc.metadata.get("gene", ""),
-        "score": doc.metadata.get("score"),
+        "content": chunk.text,
+        "source": f"g2p-rag :: {chunk.chunk_type} {chunk.residue_range}".strip(),
+        "doi": "",
+        "pmid": "",
+        "title": f"{chunk.gene} ({chunk.uniprot_id}) {chunk.chunk_type}",
+        "gene": chunk.gene,
+        "score": chunk.score,
+        "uniprot_id": chunk.uniprot_id,
+        "chunk_type": chunk.chunk_type,
+        "residue_range": chunk.residue_range,
     }
 
 
@@ -80,20 +90,19 @@ async def g2p_retrieve(gene: str, mutation: str) -> dict:
             "mutation":  str,
         }
     """
-    query = f"{gene} {mutation}"
+    query = f"{gene} {mutation}".strip()
     try:
         retriever = _get_retriever()
 
-        # Use async variant when available, fall back to sync in executor
-        if hasattr(retriever, "aget_relevant_documents"):
-            docs = await retriever.aget_relevant_documents(query)
-        else:
-            loop = asyncio.get_event_loop()
-            docs = await loop.run_in_executor(
-                None, retriever.get_relevant_documents, query
-            )
-
-        chunks = [_chunk_to_dict(d) for d in docs]
+        # G2PRetriever.retrieve is synchronous (ChromaDB call + numpy fusion).
+        # Run it in a worker thread so the LangGraph event loop doesn't stall.
+        loop = asyncio.get_event_loop()
+        retrieved = await loop.run_in_executor(
+            None,
+            lambda: retriever.retrieve(query, k=G2P_RETRIEVAL_K,
+                                         gene_filter=[gene] if gene else None),
+        )
+        chunks = [_chunk_to_dict(c) for c in retrieved]
         return {
             "formatted": _format_chunks(chunks),
             "chunks": chunks,
