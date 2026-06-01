@@ -41,6 +41,10 @@ therapy-agent = "therapy_agent.cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.uv.sources]
+g2p-rag = { path = "../g2p-rag", editable = true }
+fda-strategy-triples = { path = "../fda-strategy-triples", editable = true }
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]

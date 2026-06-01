@@ -62,6 +62,18 @@ Expected output (truncated):
 ╰────────────────────────────────────────────────────────────────────╯
 ```
 
+## Reproducible installs
+
+The canonical setup uses [uv](https://docs.astral.sh/uv/) and the committed `uv.lock`:
+
+```bash
+uv sync --extra dev
+```
+
+This pins every transitive dependency to the exact versions in `uv.lock`, including the sibling path-sources `g2p-rag` and `fda-strategy-triples` (resolved relative to this repo). Use this for any environment where you need byte-identical dependency resolution (CI, reviewers reproducing benchmarks, etc.).
+
+`pip install -e ".[dev]"` (shown in Quickstart) remains a fallback when uv is not available, but it will resolve fresh against PyPI and may pick up newer minor versions.
+
 ## Cookbook Examples
 
 ```bash
