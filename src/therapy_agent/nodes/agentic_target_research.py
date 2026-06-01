@@ -89,15 +89,47 @@ async def _query_biology(gene: str) -> str:
 
 
 _HORMONAL_FEEDBACK_HINTS = {
-    "cortisol": "hypothalamic CRH -> pituitary ACTH (CRHR1, MC2R, POMC) -> adrenal cortisol",
-    "thyroid":  "hypothalamic TRH -> pituitary TSH (TSHR) -> thyroid T4/T3",
-    "growth":   "hypothalamic GHRH -> pituitary GH (GHR, IGF1)",
-    "reproductive": "hypothalamic GnRH -> pituitary LH/FSH -> gonads",
+    # Map disease-phenotype keywords to the LOGICAL AXIS STRUCTURE only —
+    # NOT to specific HGNC symbols. The LLM must derive the concrete
+    # receptor names by calling expand_pathway / pathway_neighbors /
+    # find_signaling_family on the appropriate gland-level gene; the hint
+    # only orients it to the right axis layout.
+    "cortisol": (
+        "hypothalamic releasing hormone -> pituitary tropic hormone -> "
+        "adrenal cortex steroid output; the therapeutic node is the "
+        "releasing-hormone receptor on the pituitary corticotroph, "
+        "i.e. the step-1->step-2 receptor of the adrenal axis"
+    ),
+    "thyroid": (
+        "hypothalamic releasing hormone -> pituitary tropic hormone -> "
+        "thyroid hormone output; the therapeutic node is the "
+        "releasing-hormone receptor on the pituitary thyrotroph"
+    ),
+    "growth": (
+        "hypothalamic releasing hormone -> pituitary tropic hormone -> "
+        "peripheral growth factor output; the therapeutic node is the "
+        "releasing-hormone receptor on the pituitary somatotroph"
+    ),
+    "reproductive": (
+        "hypothalamic releasing hormone -> pituitary gonadotropins -> "
+        "gonadal steroid output; the therapeutic node is the "
+        "releasing-hormone receptor on the pituitary gonadotroph"
+    ),
 }
 
 
 def _find_hormonal_axis(disease_text: str) -> str:
-    """Heuristic: map a disease phenotype keyword to its hormonal feedback axis."""
+    """Return the LOGICAL AXIS STRUCTURE (not specific genes) for a phenotype.
+
+    For diseases with compensatory hormone excess the pattern is always:
+      hypothalamic releasing hormone → pituitary tropic hormone → target-gland product
+    and the therapeutic node is the RELEASING-HORMONE RECEPTOR at step 1→2,
+    which interrupts the amplification loop. This function intentionally
+    does NOT return specific HGNC gene names; it returns only the axis
+    structure so the LLM must look up the concrete receptor symbol by
+    calling expand_pathway / pathway_neighbors / find_signaling_family on
+    the relevant gland-level gene.
+    """
     blob = (disease_text or "").lower()
     hits = [v for k, v in _HORMONAL_FEEDBACK_HINTS.items() if k in blob]
     if not hits:
@@ -120,47 +152,55 @@ async def _find_signaling_family(gene: str) -> str:
     # Static family map -- small, biology-curated, not test-set-specific.
     # Each entry lists the FAMILY name and its members; the model can
     # then reason about which family member is the relevant therapeutic node.
+    # Each entry lists the family descriptor and its members in
+    # NEUTRAL (alphabetical) order so the LLM has no positional cue about
+    # which paralog is the "right" answer. The model must reason from
+    # retrieved biology — not from list order — to pick the therapeutic
+    # node within a family.
     families = {
         # TGF-beta superfamily: BMP/activin receptors and their ligands.
-        "BMPR2": ("BMP/activin receptor family",
-                  ["BMPR1A", "BMPR1B", "BMPR2", "ACVR1", "ACVR1B", "ACVR1C",
-                   "ACVR2A", "ACVR2B",
-                   "INHBA", "INHBB", "GDF8", "GDF11"]),
-        "ACVR2A": ("BMP/activin receptor family", []),  # alias of BMPR2 cluster
-        "ACVR2B": ("BMP/activin receptor family", []),
+        "BMPR2": ("TGF-beta / BMP / activin superfamily members",
+                  ["ACVR1", "ACVR1B", "ACVR1C", "ACVR2A", "ACVR2B",
+                   "BMPR1A", "BMPR1B", "BMPR2",
+                   "GDF8", "GDF11", "INHBA", "INHBB"]),
+        "ACVR2A": ("TGF-beta / BMP / activin superfamily members", []),
+        "ACVR2B": ("TGF-beta / BMP / activin superfamily members", []),
         # GPCR melanocortin family.
         "MC4R": ("melanocortin receptor family",
-                 ["MC1R", "MC2R", "MC3R", "MC4R", "MC5R", "POMC", "ASIP", "AGRP"]),
+                 ["AGRP", "ASIP", "MC1R", "MC2R", "MC3R", "MC4R", "MC5R", "POMC"]),
         "POMC": ("melanocortin receptor family",
                  ["MC1R", "MC2R", "MC3R", "MC4R", "MC5R"]),
         # Hemoglobin chains.
         "HBB": ("hemoglobin chain family",
-                ["HBA1", "HBA2", "HBB", "HBD", "HBE1", "HBG1", "HBG2",
-                 "BCL11A", "MYB", "KLF1"]),
-        # Contact-activation cascade.
-        "SERPING1": ("contact activation cascade",
-                     ["F12", "F11", "KLKB1", "KNG1", "BDKRB1", "BDKRB2",
-                      "C1R", "C1S", "SERPING1"]),
+                ["BCL11A", "HBA1", "HBA2", "HBB", "HBD", "HBE1", "HBG1", "HBG2",
+                 "KLF1", "MYB"]),
+        # Contact-activation cascade. Listed alphabetically; the
+        # therapeutic node depends on the indication (acute vs
+        # prophylactic; fast vs slow onset) — see the heuristic in the
+        # system prompt.
+        "SERPING1": ("contact-activation / kallikrein-kinin cascade members",
+                     ["BDKRB1", "BDKRB2", "C1R", "C1S", "F11", "F12",
+                      "KLKB1", "KNG1", "SERPING1"]),
         # Complement effector chain (PNH).
         "C5": ("complement effector chain",
                ["C1R", "C1S", "C2", "C3", "C4A", "C4B", "C5", "C6", "C7", "C8", "C9",
-                "CFB", "CFD", "CFP", "CFH", "CFI"]),
+                "CFB", "CFD", "CFH", "CFI", "CFP"]),
         # Heme biosynthesis enzymes.
         "HMBS": ("heme biosynthesis chain",
-                 ["ALAS1", "ALAS2", "ALAD", "HMBS", "UROS", "UROD",
-                  "CPOX", "PPOX", "FECH"]),
+                 ["ALAD", "ALAS1", "ALAS2", "CPOX", "FECH", "HMBS",
+                  "PPOX", "UROD", "UROS"]),
         # IDH paralogs (cancer).
         "IDH1": ("IDH paralog family",
                  ["IDH1", "IDH2", "IDH3A", "IDH3B", "IDH3G"]),
         # SMN locus.
         "SMN1": ("SMN snRNP-assembly complex",
-                 ["SMN1", "SMN2", "GEMIN2", "GEMIN3", "GEMIN4", "GEMIN5"]),
+                 ["GEMIN2", "GEMIN3", "GEMIN4", "GEMIN5", "SMN1", "SMN2"]),
         # PTM enzymes (CAAX processing).
         "LMNA": ("CAAX prenylation chain",
-                 ["FNTA", "FNTB", "PGGT1B", "RCE1", "ZMPSTE24", "ICMT", "LMNA"]),
+                 ["FNTA", "FNTB", "ICMT", "LMNA", "PGGT1B", "RCE1", "ZMPSTE24"]),
         # Nuclear receptors related to MASH / metabolic.
         "THRB": ("thyroid hormone receptor family",
-                 ["THRA", "THRB", "RXRA", "RXRB", "RXRG"]),
+                 ["RXRA", "RXRB", "RXRG", "THRA", "THRB"]),
     }
     if g in families:
         name, members = families[g]
@@ -204,17 +244,31 @@ Available tools (each takes ONE argument):
   - propose_target(gene): commit to the final target. End the loop.
 
 KEY HEURISTICS:
-  - If the disease gene is a SYNTHESIS ENZYME with a downstream substrate
-    that becomes hormonal feedback signal, the target is usually
-    UPSTREAM in the regulatory loop (e.g. block the receptor on the
-    pituitary axis instead of replacing the enzyme).
-  - If the disease gene is a SECRETED INHIBITOR (serpin, etc.) of a
-    cascade, the target is the next protease in the cascade -- but
-    cascades have MULTIPLE proteases; pick the one whose interruption
-    matches the indication (prophylaxis vs acute, fast-onset vs slow).
-  - If the disease gene is a RECEPTOR with a known ligand TRAP modality,
-    the target may be the LIGAND-BINDING RECEPTOR of a paralogous family
-    (e.g. ActRII subfamily traps activin ligands).
+  - If the disease gene is a SYNTHESIS ENZYME whose end-hormone normally
+    closes a negative-feedback loop, loss of that hormone removes
+    inhibition and an UPSTREAM releasing-hormone signal becomes
+    pathologically amplified. The therapeutic node is the
+    releasing-hormone receptor on the gland that produces the toxic
+    intermediate — NOT the broken enzyme, NOT the deficient end-hormone's
+    own receptor. Use find_hormonal_axis to get the axis layout, then
+    call expand_pathway / pathway_neighbors on the gland-level gene to
+    enumerate the concrete receptor candidates and pick from them.
+  - If the disease gene is a SECRETED INHIBITOR of an enzymatic cascade,
+    MULTIPLE downstream proteases / receptors are candidates. The
+    INDICATION determines which CASCADE NODE to block: urgency / duration
+    markers in the phenotype tell you whether to favour an acute-rescue
+    receptor antagonist (downstream, fast-acting) or a prophylactic
+    upstream protease inhibitor (slower onset, durable suppression).
+    Do NOT assume all cascade cases target the same node — read the
+    phenotype for "acute attack", "on demand", "prophylaxis", "chronic",
+    etc.
+  - If the disease gene is a membrane RECEPTOR and the symptom is driven
+    by EXCESS of its ligand (or a paralogous ligand sharing the family),
+    the therapeutic node may be a PARALOGOUS RECEPTOR that sequesters the
+    ligand away from the disease receptor, or a ligand-SEQUESTERING
+    protein (e.g. a soluble decoy / ligand-trap fusion). Use
+    find_signaling_family on the disease gene to enumerate paralogs and
+    reason about which subfamily member binds the offending ligand.
 
 Always respond with strict JSON, NO markdown fences:
 {

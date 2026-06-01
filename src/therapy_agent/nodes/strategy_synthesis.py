@@ -79,7 +79,7 @@ _PATTERN_SELECTOR_SYSTEM = """You are a translational drug-discovery scientist. 
   6. LOF hormone precursor with intact downstream receptor → agonize the receptor to bypass the missing ligand.
   7. Out-of-frame exon deletion or splice defect → splice-modulating ASO targeting an adjacent exon of the disease gene.
   8. Transcriptional repressor controlling a useful paralog → disrupt the repressor / its DNA element.
-  9. LOF of an enzyme in a NEGATIVE-FEEDBACK endocrine axis (loss of end-hormone removes inhibition of an upstream signaling cascade, causing toxic excess of an intermediate) → BLOCK the upstream signaling receptor or releasing hormone that now drives the compensatory excess. The disease gene is NOT the target; an upstream hypothalamic / pituitary / autocrine receptor IS. Example archetypes: CAH (CYP21A2 LOF → ACTH excess → adrenal androgen excess; block CRHR1), pituitary feedback loops in general.
+  9. LOF of an enzyme in a NEGATIVE-FEEDBACK endocrine axis (loss of end-hormone removes inhibition of an upstream signaling cascade, causing toxic excess of an intermediate) → BLOCK the upstream signaling receptor or releasing hormone that now drives the compensatory excess. The disease gene is NOT the target; an upstream hypothalamic / pituitary / autocrine receptor IS. Example archetype (generic): LoF in a steroidogenic / hormone-synthesis enzyme → end-hormone deficiency removes negative feedback → compensatory excess of an upstream releasing-hormone signal → that signal drives toxic accumulation of a hormonally-active intermediate; the therapeutic node is the RELEASING-HORMONE RECEPTOR immediately upstream of the overactive intermediate-producing gland, NOT the enzyme or the end-hormone receptor.
 
 Return strict JSON:
 {
@@ -89,8 +89,8 @@ Return strict JSON:
 }
 
 NEGATIVE EXAMPLES (do NOT pick chaperone/4a when the real mechanism is feedback):
-  - Disease gene CYP21A2 + ACTH-driven androgen excess phenotype: chaperone is WRONG; pattern 9 (feedback-axis blockade, target CRHR1) is right.
-  - Disease gene with phenotype dominated by COMPENSATORY upstream signaling (e.g. ACTH excess, gonadotropin excess) → pattern 9 not 4a.
+  - Synthetic archetype: a hypothetical disease gene GENEX (a hormone-synthesis enzyme) with LoF + a phenotype dominated by COMPENSATORY UPSTREAM hormone excess driving a toxic active intermediate: chaperone (protein-folding strategy) is WRONG, because the toxic signal is hormonal dysregulation, not misfolding; pattern 9 (feedback-axis blockade of the releasing-hormone receptor) is right.
+  - Disease gene with phenotype dominated by COMPENSATORY upstream signaling (any axis: adrenal, gonadal, thyroid, etc.) → pattern 9 not 4a. The toxic driver is an UPSTREAM SIGNAL amplifying the compensatory excess; block that signal's receptor, not the hormone or the broken enzyme.
 """
 
 
@@ -138,7 +138,7 @@ Rules:
 - For target_kind="disease_gene_exon_skip": target_protein MUST be the disease gene (e.g. "DMD").
 - For target_kind="disease_gene_protein_chaperone": target_protein MUST be the disease gene.
 - For target_kind="downstream_effector" / "upstream_enzyme" / "cargo_receptor" / "downstream_receptor_agonist" / "paralog" / "repressor": target_protein is a DIFFERENT gene. Pick from the candidates whose biology matches that role.
-- For target_kind="feedback_axis_receptor": target_protein is the UPSTREAM hypothalamic / pituitary / autocrine SIGNALING receptor that drives the compensatory excess -- specifically, the RELEASING HORMONE receptor (e.g. CRHR1 / CRHR2 for the HPA axis when ACTH is the toxic intermediate, GnRHR for hypogonadism-axis feedback, TRHR for thyroid-axis feedback). NOT the end-hormone's own receptor (e.g. NOT NR3C1 / glucocorticoid receptor when cortisol is deficient -- that worsens the deficiency). Look in the candidate / interactor / family list for a "...receptor" upstream of the disease gene's enzymatic product.
+- For target_kind="feedback_axis_receptor": target_protein is the UPSTREAM hypothalamic / pituitary / autocrine SIGNALING receptor whose signal drives the toxic intermediate. Identify it by: (1) tracing the axis from the retrieved biology: releasing hormone (hypothalamus) → pituitary gland → intermediate hormone → excess symptom; (2) the target is the RECEPTOR for the releasing hormone (the step-1→step-2 receptor on the pituitary/intermediate gland), NOT the end-hormone's own receptor (binding the end-hormone receptor when the end-hormone is deficient worsens the deficiency). For any axis (adrenal, gonadal, thyroid, etc.), the pattern is identical: block the upstream signal that AMPLIFIES the compensatory excess, not the hormone or the broken enzyme. Pick the specific symbol from the candidate / interactor / family list provided below — do NOT default to a hard-coded name.
 
 Do not invent drug names. Do not name any FDA-approved drug.
 """
