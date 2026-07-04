@@ -40,10 +40,9 @@ SYSTEM = """You are a critical reviewer of therapeutic strategy proposals.
 
 Your primary job is to check ALIGNMENT between the rationale and the
 target_protein. A common failure mode is the rationale correctly
-identifies a target X (e.g. "TMED9 is the cargo receptor that retains
-mutant UMOD") but the target_protein field says something different
-(e.g. UMOD itself). When that happens, FIX the target_protein to match
-the rationale's conclusion.
+identifies a non-disease-gene target, but the target_protein field says
+the disease gene itself. When that happens, FIX the target_protein to
+match the rationale's conclusion.
 
 Also check:
 1. Are cited drugs / trials real and correctly attributed?

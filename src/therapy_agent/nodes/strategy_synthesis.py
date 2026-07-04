@@ -74,7 +74,7 @@ _PATTERN_SELECTOR_SYSTEM = """You are a translational drug-discovery scientist. 
   2. LOF of a structural/transport protein with a silent paralog → target the paralog.
   3. LOF of a biosynthetic enzyme with toxic UPSTREAM substrate buildup → knock down the rate-limiting upstream enzyme.
   4a. Misfolding amenable to refolding → chaperone for the disease gene's own protein.
-  4b. Misfolding via cargo receptor ER retention (no refoldable conformer) → target the cargo receptor (often a TMED-family p24).
+  4b. Misfolding via cargo receptor ER retention (no refoldable conformer) → target the cargo receptor.
   5. GOF / dominant-negative / aggregation → knock down the disease gene's mRNA (ASO / siRNA).
   6. LOF hormone precursor with intact downstream receptor → agonize the receptor to bypass the missing ligand.
   7. Out-of-frame exon deletion or splice defect → splice-modulating ASO targeting an adjacent exon of the disease gene.
@@ -135,7 +135,7 @@ Output strict JSON:
 
 Rules:
 - For target_kind="disease_gene_mRNA": target_protein MUST be the disease gene (its mRNA).
-- For target_kind="disease_gene_exon_skip": target_protein MUST be the disease gene (e.g. "DMD").
+- For target_kind="disease_gene_exon_skip": target_protein MUST be the disease gene.
 - For target_kind="disease_gene_protein_chaperone": target_protein MUST be the disease gene.
 - For target_kind="downstream_effector" / "upstream_enzyme" / "cargo_receptor" / "downstream_receptor_agonist" / "paralog" / "repressor": target_protein is a DIFFERENT gene. Pick from the candidates whose biology matches that role.
 - For target_kind="feedback_axis_receptor": target_protein is the UPSTREAM hypothalamic / pituitary / autocrine SIGNALING receptor whose signal drives the toxic intermediate. Identify it by: (1) tracing the axis from the retrieved biology: releasing hormone (hypothalamus) → pituitary gland → intermediate hormone → excess symptom; (2) the target is the RECEPTOR for the releasing hormone (the step-1→step-2 receptor on the pituitary/intermediate gland), NOT the end-hormone's own receptor (binding the end-hormone receptor when the end-hormone is deficient worsens the deficiency). For any axis (adrenal, gonadal, thyroid, etc.), the pattern is identical: block the upstream signal that AMPLIFIES the compensatory excess, not the hormone or the broken enzyme. Pick the specific symbol from the candidate / interactor / family list provided below — do NOT default to a hard-coded name.
@@ -245,9 +245,8 @@ MECHANISM-TO-STRATEGY PATTERNS (categorical, no test-case names):
              (target = the mutant protein itself; works when there are
              amenable residues)
          (b) modulate the CARGO RECEPTOR that retains the misfolded
-             protein in the ER (target = the cargo receptor, often a
-             TMED-family p24 protein) to redirect mutant protein to
-             lysosomal degradation
+             protein in the ER (target = the cargo receptor) to redirect
+             mutant protein to lysosomal degradation
          (c) proteostasis enhancers
        → Use the retrieved SUBUNIT/INTERACTOR/PTM evidence to choose.
 
@@ -282,7 +281,7 @@ REASONING DISCIPLINE:
 OUTPUT — strict JSON, no markdown fences:
 
 {
-  "target_protein": "HGNC symbol or descriptive name (e.g. 'PCSK9 (mRNA)', 'BCL11A erythroid enhancer')",
+  "target_protein": "HGNC symbol or descriptive name (for example, a disease-gene mRNA or regulatory enhancer)",
   "target_pathway": "name of the pathway the target sits in",
   "modulation_type": "inhibitor | activator | chaperone | siRNA | ASO | gene_therapy | crispr | modulator | replacement",
   "supporting_evidence": ["claim 1", "claim 2", "claim 3"],
@@ -448,8 +447,8 @@ REASONING DISCIPLINE — apply IN ORDER:
         → target the rate-limiting UPSTREAM enzyme.
       * Misfolding + ER retention via a cargo receptor, WHERE the
         misfolded mutant has no refoldable conformer and chaperones
-        do not help → target the CARGO RECEPTOR (e.g. a TMED-family
-        p24 protein).
+        do not help → target the CARGO RECEPTOR family member supported by
+        retrieved evidence.
       * LoF of a hormone precursor with a downstream RECEPTOR axis
         → target the downstream RECEPTOR with an agonist that
         bypasses the missing ligand.

@@ -29,7 +29,7 @@ def get_g2p_index_dir() -> str:
         return v
     # Sibling-repo default for local dev: ../g2p-rag/data/chroma
     # config.py lives at therapy-agent/src/therapy_agent/config.py
-    # parents[0] = therapy_agent/, [1] = src/, [2] = therapy-agent/, [3] = .windsurf/
+    # parents[0] = therapy_agent/, [1] = src/, [2] = therapy-agent/, [3] = workspace root
     sibling_root = Path(__file__).resolve().parents[3]
     return str(sibling_root / "g2p-rag" / "data" / "chroma")
 
